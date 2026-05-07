@@ -372,13 +372,6 @@ LiteRtLmEngineSettings* litert_lm_engine_settings_create(
     return nullptr;
   }
 
-  if (*backend == litert::lm::Backend::GPU) {
-    // Enforce floating point precision for better quality.
-    auto& executor_settings = engine_settings->GetMutableMainExecutorSettings();
-    executor_settings.SetActivationDataType(
-        litert::lm::ActivationDataType::FLOAT32);
-  }
-
   auto* c_settings = new LiteRtLmEngineSettings;
   c_settings->settings =
       std::make_unique<EngineSettings>(*std::move(engine_settings));
