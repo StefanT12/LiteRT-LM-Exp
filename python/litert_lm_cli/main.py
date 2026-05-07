@@ -322,14 +322,9 @@ Speculative decoding mode ("auto", "true", "false").
   )(f)
   f = click.option(
       "--backend",
-      type=click.Choice(["cpu", "gpu", "npu"], case_sensitive=False),
+      type=click.Choice(["cpu", "gpu"], case_sensitive=False),
       default="cpu",
       help="The backend to use.",
-  )(f)
-  f = click.option(
-      "--npu-library-dir",
-      default="",
-      help="The directory containing NPU libraries for NPU backend.",
   )(f)
   return f
 
@@ -383,7 +378,6 @@ def benchmark(
     from_huggingface_repo: str | None = None,
     huggingface_token: str | None = None,
     max_num_tokens: int | None = None,
-    npu_library_dir: str = "",
 ):
   """Benchmarks a LiteRT-LM model.
 
@@ -393,7 +387,7 @@ def benchmark(
       the filename in the repository.
     prefill_tokens: The number of tokens to prefill.
     decode_tokens: The number of tokens to decode.
-    backend: The backend to use (cpu, gpu or npu).
+    backend: The backend to use (cpu or gpu).
     android: Run on Android via ADB.
     enable_speculative_decoding: Speculative decoding mode (True, False, or None
       for auto).
@@ -401,7 +395,6 @@ def benchmark(
     from_huggingface_repo: The HuggingFace repository ID.
     huggingface_token: The HuggingFace API token.
     max_num_tokens: Maximum number of tokens for the KV cache.
-    npu_library_dir: The directory containing NPU libraries.
   """
   if verbose:
     litert_lm.set_min_log_severity(litert_lm.LogSeverity.VERBOSE)
@@ -428,7 +421,6 @@ def benchmark(
       backend=backend,
       enable_speculative_decoding=enable_speculative_decoding,
       max_num_tokens=max_num_tokens,
-      npu_library_dir=npu_library_dir,
   )
 
 
@@ -561,7 +553,6 @@ def run(
     top_p: float | None = None,
     temperature: float | None = None,
     seed: int | None = None,
-    npu_library_dir: str = "",
 ):
   r"""Runs a LiteRT-LM model interactively or with a single prompt.
 
@@ -591,7 +582,6 @@ def run(
     top_p: The cumulative probability threshold for nucleus sampling.
     temperature: The temperature to use for sampling.
     seed: The seed to use for randomization.
-    npu_library_dir: The directory containing NPU libraries.
   """
   if attachment and no_template:
     click.echo(
@@ -708,7 +698,6 @@ def run(
       top_p=top_p,
       temperature=temperature,
       seed=seed,
-      npu_library_dir=npu_library_dir,
   )
 
 

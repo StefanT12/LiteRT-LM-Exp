@@ -137,16 +137,12 @@ class LoggingToolEventHandler(litert_lm.ToolEventHandler):
     return tool_response
 
 
-def _parse_backend(
-    backend: str, npu_library_dir: str = ""
-) -> litert_lm.Backend:
+def _parse_backend(backend: str) -> litert_lm.Backend:
   """Parses the backend string and returns the corresponding Backend enum."""
   backend_lower = backend.lower()
   if backend_lower == "gpu":
-    return litert_lm.Backend.GPU()
-  if backend_lower == "npu":
-    return litert_lm.Backend.NPU(native_library_dir=npu_library_dir)
-  return litert_lm.Backend.CPU()
+    return litert_lm.Backend.GPU
+  return litert_lm.Backend.CPU
 
 
 @dataclasses.dataclass
@@ -189,13 +185,12 @@ class Model:
       top_p: float | None = None,
       temperature: float | None = None,
       seed: int | None = None,
-      npu_library_dir: str = "",
   ):
     """Runs the model interactively or with a single prompt.
 
     Args:
       is_android: Whether to run the model on an Android device via ADB.
-      backend: The backend to use (cpu, gpu or npu).
+      backend: The backend to use (cpu or gpu).
       preset: Path to a Python file containing tool functions and system
         instructions.
       prompt: A single prompt to run once and exit.
@@ -213,7 +208,6 @@ class Model:
       top_p: The cumulative probability threshold for nucleus sampling.
       temperature: The temperature to use for sampling.
       seed: The seed to use for randomization.
-      npu_library_dir: The directory containing NPU libraries.
     """
     if not self.exists():
       click.echo(
@@ -225,16 +219,12 @@ class Model:
       return
 
     try:
-      backend_val = _parse_backend(backend, npu_library_dir)
+      backend_val = _parse_backend(backend)
       vision_backend_val = (
-          _parse_backend(vision_backend, npu_library_dir)
-          if vision_backend
-          else None
+          _parse_backend(vision_backend) if vision_backend else None
       )
       audio_backend_val = (
-          _parse_backend(audio_backend, npu_library_dir)
-          if audio_backend
-          else None
+          _parse_backend(audio_backend) if audio_backend else None
       )
 
       sampler_config = None
@@ -478,7 +468,6 @@ class Model:
       backend: str = "cpu",
       enable_speculative_decoding: bool | None = None,
       max_num_tokens: int | None = None,
-      npu_library_dir: str = "",
   ):
     """Benchmarks the model.
 
@@ -486,11 +475,10 @@ class Model:
       prefill_tokens: The number of tokens to prefill.
       decode_tokens: The number of tokens to decode.
       is_android: Whether to run the benchmark on an Android device via ADB.
-      backend: The backend to use (cpu, gpu or npu).
+      backend: The backend to use (cpu or gpu).
       enable_speculative_decoding: Whether to enable speculative decoding. If
         None, use the model's default.
       max_num_tokens: Maximum number of tokens for the KV cache.
-      npu_library_dir: The directory containing NPU libraries.
     """
     if not self.exists():
       click.echo(
@@ -502,7 +490,7 @@ class Model:
       return
 
     try:
-      backend_val = _parse_backend(backend, npu_library_dir)
+      backend_val = _parse_backend(backend)
 
       if is_android:
         if not _HAS_ADB:

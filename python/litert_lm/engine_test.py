@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import pathlib
-from unittest import mock
-import warnings
 
 from absl import flags
 from absl.testing import absltest
@@ -42,7 +40,7 @@ class LiteRtLmTestBase(parameterized.TestCase):
   def _create_engine(self, max_num_tokens=10):
     return litert_lm.Engine(
         self.model_path,
-        litert_lm.Backend.CPU(),
+        litert_lm.Backend.CPU,
         max_num_tokens=max_num_tokens,
         cache_dir=":nocache",
     )
@@ -67,47 +65,6 @@ class EngineTest(LiteRtLmTestBase):
         RuntimeError, "Failed to create LiteRT-LM engine for /non/existent/path"
     ):
       litert_lm.Engine("/non/existent/path")
-
-  def test_engine_init_with_npu_backend(self):
-    lib = litert_lm._ffi._get_lib()
-    if hasattr(lib, "litert_lm_engine_settings_set_litert_dispatch_lib_dir"):
-      orig_set_dir = lib.litert_lm_engine_settings_set_litert_dispatch_lib_dir
-      mock_set_dir = mock.MagicMock(side_effect=orig_set_dir)
-
-      with mock.patch.object(
-          lib,
-          "litert_lm_engine_settings_set_litert_dispatch_lib_dir",
-          mock_set_dir,
-      ):
-        try:
-          litert_lm.Engine(
-              self.model_path,
-              litert_lm.Backend.NPU(native_library_dir="my_custom_dir"),
-              cache_dir=":nocache",
-          )
-        except Exception:  # pylint: disable=broad-exception-caught
-          pass
-
-        mock_set_dir.assert_called_once()
-        args, _ = mock_set_dir.call_args
-        self.assertEqual(args[1], "my_custom_dir")
-
-  def test_engine_init_with_legacy_backend_class(self):
-    with warnings.catch_warnings(record=True) as w:
-      warnings.simplefilter("always")
-      engine = litert_lm.Engine(
-          self.model_path,
-          litert_lm.Backend.CPU,
-          max_num_tokens=10,
-          cache_dir=":nocache",
-      )
-      self.assertIsNotNone(engine)
-      self.assertLen(w, 1)
-      self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-      self.assertIn(
-          "Passing Backend class CPU is deprecated", str(w[0].message)
-      )
-      self.assertIsInstance(engine.backend, litert_lm.Backend.CPU)
 
   def test_sampler_config_validation(self):
     # Invalid top_k
@@ -226,7 +183,7 @@ class EngineTest(LiteRtLmTestBase):
   def test_benchmark_class(self):
     benchmark = litert_lm.Benchmark(
         self.model_path,
-        litert_lm.Backend.CPU(),
+        litert_lm.Backend.CPU,
         prefill_tokens=10,
         decode_tokens=10,
         cache_dir=":nocache",

@@ -27,7 +27,7 @@ class Benchmark(interfaces.AbstractBenchmark):
   def run(self) -> interfaces.BenchmarkInfo:
     lib = _get_lib()
     model_path = self.model_path
-    backend_str = self.backend.get_name()
+    backend_str = self.backend.name.lower()
 
     settings = lib.litert_lm_engine_settings_create(
         model_path,

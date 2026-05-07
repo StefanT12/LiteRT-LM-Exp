@@ -429,14 +429,6 @@ void litert_lm_engine_settings_set_cache_dir(LiteRtLmEngineSettings* settings,
   }
 }
 
-void litert_lm_engine_settings_set_litert_dispatch_lib_dir(
-    LiteRtLmEngineSettings* settings, const char* lib_dir) {
-  if (settings && settings->settings && lib_dir) {
-    settings->settings->GetMutableMainExecutorSettings()
-        .SetLitertDispatchLibDir(lib_dir);
-  }
-}
-
 void litert_lm_engine_settings_enable_benchmark(
     LiteRtLmEngineSettings* settings) {
   if (settings && settings->settings) {

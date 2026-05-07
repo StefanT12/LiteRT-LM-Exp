@@ -150,10 +150,6 @@ def _setup_lib_signatures(lib):
       ctypes.c_void_p,
       c_string_p,
   ]
-  lib.litert_lm_engine_settings_set_litert_dispatch_lib_dir.argtypes = [
-      ctypes.c_void_p,
-      c_string_p,
-  ]
   lib.litert_lm_engine_settings_set_enable_speculative_decoding.argtypes = [
       ctypes.c_void_p,
       ctypes.c_bool,

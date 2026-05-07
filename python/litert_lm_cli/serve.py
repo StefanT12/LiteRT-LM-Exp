@@ -91,7 +91,7 @@ def get_engine(model_id: str) -> litert_lm.Engine:
   click.echo(
       click.style(f"Initializing engine for model: {m.model_path}", fg="cyan")
   )
-  new_engine = litert_lm.Engine(m.model_path, backend=litert_lm.Backend.CPU())
+  new_engine = litert_lm.Engine(m.model_path, backend=litert_lm.Backend.CPU)
   new_engine.__enter__()
 
   _current_engine = new_engine

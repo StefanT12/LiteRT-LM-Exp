@@ -289,14 +289,6 @@ LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_cache_dir(LiteRtLmEngineSettings* settings,
                                              const char* cache_dir);
 
-// Sets the LiteRT dispatch library directory for NPU backend.
-//
-// @param settings The engine settings.
-// @param lib_dir The dispatch library directory.
-LITERT_LM_C_API_EXPORT
-void litert_lm_engine_settings_set_litert_dispatch_lib_dir(
-    LiteRtLmEngineSettings* settings, const char* lib_dir);
-
 // Sets the activation data type.
 //
 // @param settings The engine settings.

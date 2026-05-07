@@ -19,58 +19,16 @@ from __future__ import annotations
 import abc
 import collections.abc
 import dataclasses
+import enum
 from typing import Any
 
 
-class Backend(abc.ABC):
-  """Hardware backends for LiteRT-LM.
+class Backend(enum.Enum):
+  """Hardware backends for LiteRT-LM."""
 
-  This is the abstract base class for all hardware backends used by LiteRT-LM.
-  Use the subclasses (CPU, GPU, NPU) to specify the backend and its options.
-  """
-
-  def get_name(self) -> str:
-    """Returns the string representation of the backend (e.g., 'cpu', 'gpu', 'npu')."""
-    return type(self).__name__.lower()
-
-  def __eq__(self, other: Any) -> bool:
-    if type(self) is not type(other):
-      return False
-    return True
-
-
-class CPU(Backend):
-  """CPU hardware backend for LiteRT-LM."""
-
-
-class GPU(Backend):
-  """GPU hardware backend for LiteRT-LM."""
-
-
-class NPU(Backend):
-  """NPU hardware backend for LiteRT-LM.
-
-  Attributes:
-    native_library_dir: The directory containing the NPU libraries.
-  """
-
-  def __init__(self, *, native_library_dir: str = ""):
-    """Initializes the NPU backend.
-
-    Args:
-      native_library_dir: The directory containing the NPU libraries.
-    """
-    self.native_library_dir = native_library_dir
-
-  def __eq__(self, other: Any) -> bool:
-    if not super().__eq__(other):
-      return False
-    return self.native_library_dir == other.native_library_dir
-
-
-Backend.CPU = CPU
-Backend.GPU = GPU
-Backend.NPU = NPU
+  UNSPECIFIED = 0
+  CPU = 3
+  GPU = 4
 
 
 class ToolEventHandler(abc.ABC):
