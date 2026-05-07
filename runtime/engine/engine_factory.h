@@ -128,13 +128,6 @@ class EngineFactory {
     return absl::NotFoundError(error_msg);
   }
 
-  // Same as CreateDefault.
-  // TODO - b/503516226: Clean up this "CreateAny". Use "CreateDefault".
-  static absl::StatusOr<std::unique_ptr<Engine>> CreateAny(
-      EngineSettings settings, absl::string_view input_prompt_as_hint = "") {
-    return CreateDefault(std::move(settings), input_prompt_as_hint);
-  }
-
   // Creates an Engine instance of the given type.
   static absl::StatusOr<std::unique_ptr<Engine>> Create(
       EngineType engine_type, EngineSettings settings,
