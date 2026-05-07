@@ -177,8 +177,8 @@ absl::AnyInvocable<void(absl::StatusOr<Message>)> CreatePrintMessageCallback(
   };
 }
 
-void CheckExpectedOutput(const std::string& captured_output,
-                         const LiteRtLmSettings& settings) {
+absl::Status CheckExpectedOutput(const std::string& captured_output,
+                                 const LiteRtLmSettings& settings) {
   // Skip printing the output when using fake prefill tokens.
   bool should_print_output = settings.benchmark_prefill_tokens == 0;
   if (should_print_output) {
@@ -187,10 +187,13 @@ void CheckExpectedOutput(const std::string& captured_output,
   if (settings.expected_output.has_value()) {
     if (!absl::StrContainsIgnoreCase(captured_output,
                                      *settings.expected_output)) {
-      ABSL_LOG(FATAL) << "Expected output: " << *settings.expected_output
+      ABSL_LOG(ERROR) << "Expected output: " << *settings.expected_output
                       << " was not found in response: " << captured_output;
+      return absl::InternalError("Expected output not found in response: " +
+                                 captured_output);
     }
   }
+  return absl::OkStatus();
 }
 
 absl::StatusOr<std::unique_ptr<Constraint>> CreateRegexConstraint(
@@ -224,7 +227,7 @@ absl::StatusOr<Message> RunSingleTurnConversation(
         json::object({{"role", "user"}, {"content", content_list}}),
         std::move(print_message_callback), std::move(optional_args)));
     RETURN_IF_ERROR(engine->WaitUntilDone(kWaitUntilDoneTimeout));
-    CheckExpectedOutput(captured_output.str(), settings);
+    RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
     return conversation->GetHistory().back();
   } else {
     ASSIGN_OR_RETURN(
@@ -235,7 +238,7 @@ absl::StatusOr<Message> RunSingleTurnConversation(
     if (should_print_output) {
       RETURN_IF_ERROR(PrintMessage(model_message, captured_output));
     }
-    CheckExpectedOutput(captured_output.str(), settings);
+    RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
     return model_message;
   }
 }
@@ -284,7 +287,7 @@ absl::Status RunMultiTurnConversation(const LiteRtLmSettings& settings,
       RETURN_IF_ERROR(PrintMessage(model_message, captured_output));
     }
   } while (true);
-  CheckExpectedOutput(captured_output.str(), settings);
+  RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
   return absl::OkStatus();
 }
 
@@ -321,7 +324,7 @@ absl::Status RunSingleTurnSession(const std::string& input_prompt,
     captured_output << response << std::endl << std::flush;
   }
   ABSL_LOG(INFO) << "output: " << captured_output.str();
-  CheckExpectedOutput(captured_output.str(), settings);
+  RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
   return absl::OkStatus();
 }
 

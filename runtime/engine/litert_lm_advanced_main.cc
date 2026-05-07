@@ -32,7 +32,6 @@
 
 #include "absl/flags/flag.h"  // from @com_google_absl
 #include "absl/flags/parse.h"  // from @com_google_absl
-#include "absl/log/absl_check.h"  // from @com_google_absl
 #include "absl/log/absl_log.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
@@ -303,6 +302,10 @@ absl::Status MainHelper(int argc, char** argv) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  ABSL_CHECK_OK(MainHelper(argc, argv));
+  absl::Status status = MainHelper(argc, argv);
+  if (!status.ok()) {
+    ABSL_LOG(ERROR) << "Failed to run litert_lm: " << status;
+    return static_cast<int>(status.code());
+  }
   return 0;
 }
