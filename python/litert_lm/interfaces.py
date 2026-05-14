@@ -21,6 +21,9 @@ import collections.abc
 import dataclasses
 from typing import Any
 
+from ._messages import Contents
+from ._messages import Message
+
 
 class Backend(abc.ABC):
   """Hardware backends for LiteRT-LM.
@@ -193,7 +196,8 @@ class AbstractEngine(abc.ABC):
       self,
       *,
       messages: (
-          collections.abc.Sequence[collections.abc.Mapping[str, Any]] | None
+          collections.abc.Sequence[collections.abc.Mapping[str, Any] | Message]
+          | None
       ) = None,
       tools: (
           collections.abc.Sequence[collections.abc.Callable[..., Any] | Tool]
@@ -277,7 +281,8 @@ class AbstractConversation(abc.ABC):
       self,
       *,
       messages: (
-          collections.abc.Sequence[collections.abc.Mapping[str, Any]] | None
+          collections.abc.Sequence[collections.abc.Mapping[str, Any] | Message]
+          | None
       ) = None,
       tools: (
           collections.abc.Sequence[collections.abc.Callable[..., Any] | Tool]
@@ -318,13 +323,18 @@ class AbstractConversation(abc.ABC):
 
   @abc.abstractmethod
   def send_message(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> collections.abc.Mapping[str, Any]:
     """Sends a message and returns the response.
 
     Args:
-        message: The input message to send to the model. Example: "Hello" or
-          {"role": "user", "content": "Hello"}.
+        message: The input message to send. Supported types are: `str` (for most
+          simple text input, automatically wrapped as a user message),
+          `Contents` (for multi-modality interleaving, automatically wrapped as
+          a user message), `Message` (full message object, useful when automatic
+          tool calling is disabled and a tool response is required), or
+          `collections.abc.Mapping` (super flexible raw dictionary format).
 
     Returns:
         A dictionary containing the model's response. The structure is:
@@ -333,13 +343,18 @@ class AbstractConversation(abc.ABC):
 
   @abc.abstractmethod
   def send_message_async(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> collections.abc.Iterator[collections.abc.Mapping[str, Any]]:
     """Sends a message and streams the response.
 
     Args:
-        message: The input message to send to the model. Example: "Hello" or
-          {"role": "user", "content": "Hello"}.
+        message: The input message to send. Supported types are: `str` (for most
+          simple text input, automatically wrapped as a user message),
+          `Contents` (for multi-modality interleaving, automatically wrapped as
+          a user message), `Message` (full message object, useful when automatic
+          tool calling is disabled and a tool response is required), or
+          `collections.abc.Mapping` (super flexible raw dictionary format).
 
     Returns:
         An iterator yielding dictionaries containing chunks of the model's
@@ -348,13 +363,18 @@ class AbstractConversation(abc.ABC):
 
   @abc.abstractmethod
   def render_message_to_string(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> str:
     """Renders a message into a string according to the template.
 
     Args:
-        message: The input message to render. Example: "Hello" or {"role":
-          "user", "content": "Hello"}.
+        message: The input message to render. Supported types are: `str` (for
+          most simple text input, automatically wrapped as a user message),
+          `Contents` (for multi-modality interleaving, automatically wrapped as
+          a user message), `Message` (full message object, useful when automatic
+          tool calling is disabled and a tool response is required), or
+          `collections.abc.Mapping` (super flexible raw dictionary format).
 
     Returns:
         The rendered string.

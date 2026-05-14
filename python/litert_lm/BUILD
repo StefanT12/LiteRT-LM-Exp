@@ -83,6 +83,12 @@ cc_binary(
 pytype_strict_library(
     name = "interfaces",
     srcs = ["interfaces.py"],
+    deps = [":_messages"],
+)
+
+pytype_strict_library(
+    name = "_messages",
+    srcs = ["_messages.py"],
 )
 
 pytype_strict_library(
@@ -119,6 +125,7 @@ pytype_strict_library(
     srcs = ["conversation.py"],
     deps = [
         ":_ffi",
+        ":_messages",
         ":interfaces",
     ],
 )
@@ -128,6 +135,7 @@ pytype_strict_library(
     srcs = ["engine.py"],
     deps = [
         ":_ffi",
+        ":_messages",
         ":conversation",
         ":interfaces",
         ":session",
@@ -161,6 +169,7 @@ pytype_strict_library(
     }),
     deps = [
         ":_ffi",
+        ":_messages",
         ":benchmark",
         ":conversation",
         ":engine",
@@ -188,6 +197,18 @@ py_test(
     name = "tool_test",
     srcs = ["tool_test.py"],
     data = ["//runtime/testdata"],
+    tags = ["nowindows"],
+    deps = [
+        ":litert_lm",
+        "@absl_py//absl/testing:absltest",
+        "@absl_py//absl/testing:parameterized",
+    ],
+    imports = [".."],
+)
+
+py_test(
+    name = "messages_test",
+    srcs = ["messages_test.py"],
     tags = ["nowindows"],
     deps = [
         ":litert_lm",

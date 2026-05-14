@@ -13,6 +13,8 @@
 # limitations under the License.
 """Engine wrapper for LiteRT-LM."""
 
+from __future__ import annotations
+
 import collections.abc
 import ctypes
 import json
@@ -23,6 +25,7 @@ from . import interfaces
 from . import tools as litert_tools
 from ._ffi import _get_lib
 from ._ffi import TokenUnionType
+from ._messages import Message
 from .conversation import Conversation
 from .session import Session
 from .utils import _parse_token_union
@@ -138,7 +141,8 @@ class Engine(interfaces.AbstractEngine):
       self,
       *,
       messages: (
-          collections.abc.Sequence[collections.abc.Mapping[str, Any]] | None
+          collections.abc.Sequence[collections.abc.Mapping[str, Any] | Message]
+          | None
       ) = None,
       tools: (
           collections.abc.Sequence[
@@ -176,8 +180,11 @@ class Engine(interfaces.AbstractEngine):
       )
 
     if messages:
+      serialized_messages = [
+          m.to_json() if hasattr(m, "to_json") else m for m in messages
+      ]
       self._lib.litert_lm_conversation_config_set_messages(
-          conv_config, json.dumps(messages)
+          conv_config, json.dumps(serialized_messages)
       )
 
     if extra_context:

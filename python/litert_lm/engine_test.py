@@ -139,8 +139,7 @@ class EngineTest(LiteRtLmTestBase):
         ) as conversation,
     ):
       self.assertEqual(conversation.sampler_config, sampler_config)
-      user_message = {"role": "user", "content": "Hello world!"}
-      message = conversation.send_message(user_message)
+      message = conversation.send_message("Hello world!")
       self.assertIn("role", message)
       self.assertEqual(message["role"], "assistant")
 
@@ -164,8 +163,7 @@ class EngineTest(LiteRtLmTestBase):
     ):
       self.assertIsNotNone(engine)
       self.assertIsNotNone(conversation)
-      user_message = {"role": "user", "content": "Hello world!"}
-      message = conversation.send_message(user_message)
+      message = conversation.send_message("Hello world!")
 
       expected_message = {
           "role": "assistant",
@@ -180,8 +178,7 @@ class EngineTest(LiteRtLmTestBase):
     ):
       self.assertIsNotNone(engine)
       self.assertIsNotNone(conversation)
-      user_message = {"role": "user", "content": "Hello world!"}
-      rendered = conversation.render_message_to_string(user_message)
+      rendered = conversation.render_message_to_string("Hello world!")
       self.assertIsInstance(rendered, str)
       self.assertIn("Hello world!", rendered)
 
@@ -192,8 +189,7 @@ class EngineTest(LiteRtLmTestBase):
     ):
       self.assertIsNotNone(engine)
       self.assertIsNotNone(conversation)
-      user_message = {"role": "user", "content": "Hello world!"}
-      stream = conversation.send_message_async(user_message)
+      stream = conversation.send_message_async("Hello world!")
       text_pieces = self._extract_text(stream)
 
       self.assertEqual("".join(text_pieces), self._EXPECTED_RESPONSE)
@@ -204,8 +200,7 @@ class EngineTest(LiteRtLmTestBase):
         self._create_engine() as engine,
         engine.create_conversation() as conversation,
     ):
-      user_message = {"role": "user", "content": "Hello world!"}
-      stream = conversation.send_message_async(user_message)
+      stream = conversation.send_message_async("Hello world!")
 
       text_pieces = []
       for chunk in stream:
@@ -284,6 +279,44 @@ class EngineTest(LiteRtLmTestBase):
     ):
       self.assertEqual(conversation.messages, messages)
 
+  def test_create_conversation_with_message_objects(self):
+    messages = [
+        litert_lm.Message.system("You are a helpful assistant."),
+        litert_lm.Message.user("Hello"),
+    ]
+    with (
+        self._create_engine() as engine,
+        engine.create_conversation(messages=messages) as conversation,
+    ):
+      self.assertEqual(conversation.messages, messages)
+
+  def test_conversation_send_message_object(self):
+    with (
+        self._create_engine() as engine,
+        engine.create_conversation() as conversation,
+    ):
+      user_message = litert_lm.Message.user("Hello world!")
+      message = conversation.send_message(user_message)
+      self.assertEqual(message["role"], "assistant")
+
+  def test_conversation_send_contents_object(self):
+    with (
+        self._create_engine() as engine,
+        engine.create_conversation() as conversation,
+    ):
+      user_contents = litert_lm.Contents.of("Hello world!")
+      message = conversation.send_message(user_contents)
+      self.assertEqual(message["role"], "assistant")
+
+  def test_conversation_send_dict_message(self):
+    with (
+        self._create_engine() as engine,
+        engine.create_conversation() as conversation,
+    ):
+      user_message = {"role": "user", "content": "Hello world!"}
+      message = conversation.send_message(user_message)
+      self.assertEqual(message["role"], "assistant")
+
   def test_create_conversation_with_extra_context(self):
     extra_context = {"key": "value"}
     with (
@@ -291,25 +324,6 @@ class EngineTest(LiteRtLmTestBase):
         engine.create_conversation(extra_context=extra_context) as conversation,
     ):
       self.assertEqual(conversation.extra_context, extra_context)
-
-  def test_str_input_support(self):
-    with (
-        self._create_engine() as engine,
-        engine.create_conversation() as conversation,
-    ):
-      # Test with str input
-      message = conversation.send_message("Hello world!")
-      self.assertEqual(message["role"], "assistant")
-
-  def test_str_input_support_async(self):
-    with (
-        self._create_engine() as engine,
-        engine.create_conversation() as conversation,
-    ):
-      # Test with str input (async)
-      stream = conversation.send_message_async("Hello world!")
-      text_pieces = self._extract_text(stream)
-      self.assertNotEmpty(text_pieces)
 
   def test_tool_event_handler_storage(self):
 

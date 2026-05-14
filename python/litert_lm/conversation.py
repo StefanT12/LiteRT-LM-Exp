@@ -13,6 +13,8 @@
 # limitations under the License.
 """Conversation wrapper for LiteRT-LM."""
 
+from __future__ import annotations
+
 import collections.abc
 import json
 import logging
@@ -21,6 +23,7 @@ from typing import Any
 
 from . import interfaces
 from ._ffi import STREAM_CALLBACK_TYPE
+from ._messages import Contents, Message, normalize_message
 
 
 class Conversation(interfaces.AbstractConversation):
@@ -112,14 +115,12 @@ class Conversation(interfaces.AbstractConversation):
 
     return tool_responses
 
+  # TODO - b/482060476: Change the return type to "Message".
   def send_message(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> collections.abc.Mapping[str, Any]:
-    current_message = (
-        message
-        if isinstance(message, dict)
-        else {"role": "user", "content": message}
-    )
+    current_message = normalize_message(message)
 
     while True:
       msg_json = json.dumps(current_message)
@@ -149,13 +150,10 @@ class Conversation(interfaces.AbstractConversation):
       current_message = tool_responses
 
   def send_message_async(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> collections.abc.Iterator[collections.abc.Mapping[str, Any]]:
-    current_message = (
-        message
-        if isinstance(message, dict)
-        else {"role": "user", "content": message}
-    )
+    current_message = normalize_message(message)
 
     while True:
       msg_json = json.dumps(current_message)
@@ -233,13 +231,10 @@ class Conversation(interfaces.AbstractConversation):
       current_message = tool_responses
 
   def render_message_to_string(
-      self, message: str | collections.abc.Mapping[str, Any]
+      self,
+      message: str | Contents | Message | collections.abc.Mapping[str, Any],
   ) -> str:
-    msg_json = (
-        message
-        if isinstance(message, dict)
-        else {"role": "user", "content": message}
-    )
+    msg_json = normalize_message(message)
     res_str = self._lib.litert_lm_conversation_render_message_to_string(
         self._ptr, json.dumps(msg_json)
     )
