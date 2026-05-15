@@ -363,8 +363,16 @@ def _get_kvp_value_and_type(kvp: schema.KeyValuePair) -> tuple[Any, str]:
     return None, "Unknown"
 
 
-def _kvp_to_dict(kvp: schema.KeyValuePair) -> dict[str, Any]:
-  """Converts a KeyValuePair to a dictionary."""
+def kvp_to_dict(kvp: schema.KeyValuePair) -> dict[str, Any]:
+  """Converts a flatbuffer KeyValuePair object into a Python dictionary.
+
+  Args:
+    kvp: The KeyValuePair flatbuffer table object to convert.
+
+  Returns:
+    A dictionary with 'key' (str or None), 'value' (extracted Any value or None),
+    and 'value_type' (str description of the union type).
+  """
   key_bytes = kvp.Key()
   key = key_bytes.decode("utf-8") if key_bytes is not None else None
   val, dtype = _get_kvp_value_and_type(kvp)
@@ -453,7 +461,7 @@ def peek_litertlm_file(
         kvp = system_metadata.Entries(i)
         print_key_value_pair(kvp, output_stream, 1)
         if dump_files_dir:
-          toml_system_metadata.append(_kvp_to_dict(kvp))
+          toml_system_metadata.append(kvp_to_dict(kvp))
     else:
       output_stream.write(" " * INDENT_SPACES + "No system metadata entries.\n")
     output_stream.write("\n")
@@ -506,7 +514,7 @@ def peek_litertlm_file(
           backend_constraint = None
           if section_object.ItemsLength() > 0:
             for j in range(section_object.ItemsLength()):
-              item_dict = _kvp_to_dict(section_object.Items(j))
+              item_dict = kvp_to_dict(section_object.Items(j))
               if item_dict["key"] == "model_type":
                 model_type = item_dict["value"]
               elif item_dict["key"] == "backend_constraint":

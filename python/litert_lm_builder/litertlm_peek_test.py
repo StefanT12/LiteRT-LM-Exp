@@ -261,6 +261,24 @@ class LitertlmPeekUtilTest(absltest.TestCase):
         self.assertEqual(f.read(), file_content)
       self.assertIn("model.weight dumped to", mock_output.getvalue())
 
+  def test_kvp_to_dict(self):
+    mock_kvp = mock.Mock()
+    mock_kvp.Key.return_value = b"model_type"
+    with mock.patch.object(
+        litertlm_peek,
+        "_get_kvp_value_and_type",
+        return_value=("decoder", "String"),
+    ):
+      res = litertlm_peek.kvp_to_dict(mock_kvp)
+      self.assertEqual(
+          res,
+          {
+              "key": "model_type",
+              "value": "decoder",
+              "value_type": "String",
+          },
+      )
+
 
 if __name__ == "__main__":
   absltest.main()
