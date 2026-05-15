@@ -15,6 +15,8 @@
 References:
 * Responses API:
 https://developers.openai.com/api/reference/resources/responses/methods/create
+* Chat Completions API:
+https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
 """
 
 from __future__ import annotations
@@ -82,6 +84,62 @@ class _OpenAIStreamFormatter(abc.ABC):
     """Formats the final [DONE] event."""
     del self
     return _format_sse_final()
+
+
+class _OpenAIChatCompletionsFormatter(_OpenAIStreamFormatter):
+  """A formatter for Server-Sent Events in the OpenAI Chat Completions API."""
+
+  def __init__(self, now_str: str, created_ts: int, model_id: str):
+    super().__init__(now_str, created_ts, model_id)
+    self._chunk_id = f"chatcmpl_{now_str}"
+
+  def format_initial(self) -> bytes:
+    """Formats the initial chunk."""
+    return _sse_data(
+        _dump_json({
+            "id": self._chunk_id,
+            "object": "chat.completion.chunk",
+            "created": self._created_ts,
+            "model": self._model_id,
+            "choices": [{
+                "index": 0,
+                "delta": {"role": "assistant"},
+                "finish_reason": None,
+            }],
+        })
+    )
+
+  def format_delta(self, text_output: str) -> bytes:
+    """Formats a delta chunk with text content."""
+    return _sse_data(
+        _dump_json({
+            "id": self._chunk_id,
+            "object": "chat.completion.chunk",
+            "created": self._created_ts,
+            "model": self._model_id,
+            "choices": [{
+                "index": 0,
+                "delta": {"content": text_output},
+                "finish_reason": None,
+            }],
+        })
+    )
+
+  def format_complete(self) -> bytes:
+    """Formats the final chunk indicating completion."""
+    return _sse_data(
+        _dump_json({
+            "id": self._chunk_id,
+            "object": "chat.completion.chunk",
+            "created": self._created_ts,
+            "model": self._model_id,
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop",
+            }],
+        })
+    )
 
 
 class _OpenAIV1ResponsesFormatter(_OpenAIStreamFormatter):
@@ -166,6 +224,9 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
   Responses API:
   https://developers.openai.com/api/reference/resources/responses/methods/create
 
+  Chat Completions API:
+  https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
+
   Attributes:
     _headers_sent: Boolean flag tracking if HTTP response status headers have
       already been transmitted.
@@ -184,14 +245,14 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
   def _stream_response(
       self,
       conv: litert_lm.Conversation,
-      prompt: str,
+      prompt: str | dict[str, Any],
       formatter: _OpenAIStreamFormatter,
   ) -> None:
     """Streams server-sent events using the provided formatter.
 
     Args:
       conv: The active LiteRT-LM conversation session.
-      prompt: The input prompt string.
+      prompt: The input prompt payload (string or dictionary).
       formatter: The protocol-specific stream formatter.
     """
     self._headers_sent = True
@@ -232,6 +293,70 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.flush()
       except Exception:  # pylint: disable=broad-exception-caught
         pass
+
+  def _handle_chat_completions(
+      self,
+      conv: litert_lm.Conversation,
+      prompt: str | dict[str, Any],
+      model_id: str,
+      stream: bool,
+      *,
+      now_str: str,
+      created_ts: int,
+  ) -> None:
+    """Generates responses for the OpenAI Chat Completions endpoint.
+
+    Endpoint: `/v1/chat/completions` (and `/chat/completions`).
+    - Request: Expects a JSON body with at least a "model" field and a
+      "messages" array. The last message's "content" is used as the prompt.
+      A "stream" field (boolean) can be included.
+    - Response (Non-streaming): A JSON object in the OpenAI chat completion
+      format, containing the model's text response.
+    - Response (Streaming): Server-Sent Events (SSE) with
+      `chat.completion.chunk` objects, including an initial role delta,
+      content deltas, and a final delta with "stop" finish reason,
+      terminated by `data: [DONE]`.
+
+    Args:
+      conv: The active LiteRT-LM conversation session.
+      prompt: The input prompt extracted from the request messages.
+      model_id: The target model identifier.
+      stream: Whether to stream the response via Server-Sent Events.
+      now_str: Timestamp string for unique identifier generation.
+      created_ts: Epoch timestamp for creation metadata.
+    """
+    if not stream:
+      response = conv.send_message(prompt)
+      text_output = "".join(
+          item.get("text", "")
+          for item in response.get("content", [])
+          if item.get("type") == "text"
+      )
+      resp_body = {
+          "id": f"chatcmpl_{now_str}",
+          "object": "chat.completion",
+          "created": created_ts,
+          "model": model_id,
+          "choices": [{
+              "index": 0,
+              "message": {
+                  "role": "assistant",
+                  "content": text_output,
+              },
+              "finish_reason": "stop",
+          }],
+      }
+      setattr(self, "_headers_sent", True)
+      self.send_response(200)
+      self.send_header("Content-Type", "application/json")
+      self.end_headers()
+      self.wfile.write(
+          json.dumps(resp_body, ensure_ascii=False).encode("utf-8")
+      )
+      return
+
+    formatter = _OpenAIChatCompletionsFormatter(now_str, created_ts, model_id)
+    self._stream_response(conv, prompt, formatter)
 
   def _handle_responses(
       self,
@@ -304,7 +429,11 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
   def do_POST(self) -> None:  # pylint: disable=invalid-name
     """Handles POST requests for OpenAI API compatible endpoints."""
     path_without_query, *_ = self.path.split("?", 1)
-    if path_without_query != "/v1/responses":
+    is_chat_completions = path_without_query in (
+        "/v1/chat/completions",
+        "/chat/completions",
+    )
+    if path_without_query != "/v1/responses" and not is_chat_completions:
       self.send_error(404, "Not Found")
       return
 
@@ -316,10 +445,15 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
       return
 
     model_id = body.get("model")
-    prompt = body.get("input")
+    messages = body.get("messages")
+    if isinstance(messages, list) and messages:
+      last_msg = messages[-1]
+      prompt = last_msg if isinstance(last_msg, dict) else body.get("input")
+    else:
+      prompt = body.get("input")
 
     if not model_id or not prompt:
-      self.send_error(400, "Missing model or input")
+      self.send_error(400, "Missing model or input/messages")
       return
 
     try:
@@ -335,22 +469,37 @@ class OpenAIHandler(http.server.BaseHTTPRequestHandler):
     stream = body.get("stream", False)
 
     try:
+      context_messages = (
+          messages[:-1]
+          if is_chat_completions and isinstance(messages, list)
+          else []
+      )
       with engine.create_conversation(
-          messages=[],
+          messages=context_messages,
           automatic_tool_calling=False,
       ) as conv:
         now = datetime.datetime.now(datetime.timezone.utc)
         now_str = now.strftime("%Y%m%d%H%M%S%f")
         created_ts = int(now.timestamp())
 
-        self._handle_responses(
-            conv,
-            prompt,
-            stream,
-            now_str=now_str,
-            created_ts=created_ts,
-            model_id=model_id,
-        )
+        if is_chat_completions:
+          self._handle_chat_completions(
+              conv,
+              prompt,
+              model_id,
+              stream,
+              now_str=now_str,
+              created_ts=created_ts,
+          )
+        else:
+          self._handle_responses(
+              conv,
+              prompt,
+              stream,
+              now_str=now_str,
+              created_ts=created_ts,
+              model_id=model_id,
+          )
 
     except Exception as e:  # pylint: disable=broad-exception-caught
       click.echo(

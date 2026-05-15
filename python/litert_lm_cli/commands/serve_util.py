@@ -42,8 +42,7 @@ def get_or_initialize_server_engine(
 
   Lifetime Management:
   The LiteRT-LM Engine is a globally scoped persistent resource attached
-  directly
-  to explicit runtime properties on the custom server context object.
+  directly to explicit runtime properties on the custom server context object.
   - Initialization: Invokes `__enter__` dynamically upon the arrival of the
     first incoming inference request.
   - Termination: The running server's parent execution process is responsible
