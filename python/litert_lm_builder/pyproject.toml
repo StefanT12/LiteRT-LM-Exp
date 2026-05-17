@@ -21,37 +21,115 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "litert-lm-builder"
-version = "0.9.0"
-description = "Python tools for building LiteRT-LM"
+# The version will be automatically updated by the release automation. One 
+# can manually build the litert-lm-builder package with specific version by
+# first updating the version here and then running:
+# ./python/litert_lm_builder/bundle_pypi_package.sh
+version = "0.12.0"
+description = "Python tools for building and inspecting LiteRT-LM file formats."
 dependencies = [
     "protobuf",
     "flatbuffers",
     "absl-py",
     "tomli",
 ]
-keywords = ["On-Device ML", "AI", "Google", "TFLite", "LiteRT", "PyTorch", "LLMs", "GenAI"]
+keywords = ["On-Device ML", "AI", "Google", "TFLite", "LiteRT", "PyTorch", "LLM", "GenAI", "AI Edge", "LiteRT-LM"]
 requires-python = ">=3.10"
 
 readme = { text = """
 # LiteRT-LM Builder
 
-Python tools for building, inspecting, and unpacking LiteRT-LM files.
+Python tools for building, inspecting, and unpacking LiteRT-LM (`.litertlm`) container files.
 
 ## Usage
 
-### 🛠️ Build a LiteRT-LM File
-Use the CLI tool:
+The package provides two main Command Line Interfaces (CLIs): `litert-lm-builder` and `litert-lm-peek`.
 
+---
+
+### 🛠️ Build a LiteRT-LM File (`litert-lm-builder`)
+
+Use `litert-lm-builder` to package various components into a single `.litertlm` file. There are two ways to use this tool:
+
+#### Method 1: Build using a TOML Configuration
+Specify all the components and metadata in a TOML file, then run:
 ```bash
-litert-lm-builder [options]
+litert-lm-builder toml --path config.toml output --path model.litertlm
 ```
 
-### 🔍 Inspect and Unpack a LiteRT-LM File
-Use the CLI tool:
+**Example TOML File (`config.toml`):**
+```toml
+[system_metadata]
+entries = [
+  { key = "author", value_type = "String", value = "Authors" }
+]
+
+[[section]]
+section_type = "LlmMetadata"
+data_path = "path/to/llm_metadata.pb"
+
+[[section]]
+section_type = "SP_Tokenizer"
+data_path = "path/to/sp.model"
+
+[[section]]
+section_type = "TFLiteModel"
+model_type = "PREFILL_DECODE"
+data_path = "path/to/model.tflite"
+additional_metadata = [
+  { key = "model_version", value_type = "String", value = "1.0.1" }
+]
+```
+
+#### Method 2: Build via Command Line Arguments
+You can construct the file by chaining subcommands in the terminal. The order of the subcommands determines the order of the sections in the generated file.
 
 ```bash
-litert-lm-peek [options]
+litert-lm-builder \\
+  system_metadata --str author "Authors" \\
+  llm_metadata --path path/to/llm_metadata.pb \\
+  sp_tokenizer --path path/to/sp.model \\
+  tflite_model --path path/to/model.tflite --model_type prefill_decode --str_metadata model_version "1.0.1" \\
+  output --path model.litertlm
 ```
+
+#### Subcommands and Options Reference:
+
+*   **`output`** (Required): Specifies the output file path.
+    *   `--path PATH`: Path to save the built `.litertlm` file.
+*   **`toml`**: Load configuration from a TOML file.
+    *   `--path PATH`: Path to the `.toml` file.
+*   **`system_metadata`**: Add global system metadata.
+    *   `--str KEY VALUE`: Add a string key-value pair (can be specified multiple times).
+    *   `--int KEY VALUE`: Add an integer key-value pair (can be specified multiple times).
+*   **`llm_metadata`**: Add LLM-specific configuration.
+    *   `--path PATH`: Path to the LLM metadata (text or binary proto).
+*   **`tflite_model`**: Add a TFLite model.
+    *   `--path PATH`: Path to the `.tflite` file.
+    *   `--model_type TYPE`: e.g., `embedder`, `prefill_decode`.
+    *   `--backend_constraint BACKEND`: (Optional) Backend constraint (e.g., `gpu`, `cpu`, `npu`).
+    *   `--prefer_activation_type TYPE`: (Optional) Preferred activation type (`fp16`, `fp32`, `fp32_fp16`).
+    *   `--str_metadata KEY VALUE`: (Optional) String metadata for this model section.
+*   **`sp_tokenizer`**: Add a SentencePiece tokenizer.
+    *   `--path PATH`: Path to the `.model` file.
+    *   `--str_metadata KEY VALUE`: (Optional) String metadata.
+*   **`hf_tokenizer`**: Add a Hugging Face tokenizer.
+    *   `--path PATH`: Path to the `tokenizer.json` file.
+    *   `--str_metadata KEY VALUE`: (Optional) String metadata.
+
+---
+
+### 🔍 Inspect and Unpack a LiteRT-LM File (`litert-lm-peek`)
+
+Use `litert-lm-peek` to inspect the contents of a `.litertlm` file or extract all its packaged files.
+
+```bash
+litert-lm-peek --litertlm_file model.litertlm [options]
+```
+
+#### Options Reference:
+*   **`--litertlm_file PATH`** (Required): The path to the `.litertlm` file to inspect.
+*   **`--dump_files_dir PATH`** (Optional): The directory where all packaged files (models, tokenizers, weights) should be extracted/unpacked. If not provided, the tool will only print the metadata and section structures to the console without extracting files.
 """, content-type = "text/markdown" }
 
 
@@ -61,6 +139,6 @@ litert-lm-peek [options]
 
 
 [project.urls]
-Homepage = "https://github.com/google-ai-edge/LiteRT-LM"
+Homepage = "https://ai.google.dev/edge/litert-lm"
 Repository = "https://github.com/google-ai-edge/LiteRT-LM"
 
