@@ -43,9 +43,9 @@ jobs:
       actions: write  # For gh cache delete.
       contents: write  # For gh release upload.
     env:
-      MODEL_KEY: gemma-4-E4B-it-litert-lm
-      MODEL_PATH: ./models/gemma-4-E4B-it-litert-lm.litertlm
-      MODEL_URL: https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm
+      MODEL_KEY: gemma-4-E2B-it-litert-lm
+      MODEL_PATH: ./models/gemma-4-E2B-it-litert-lm.litertlm
+      MODEL_URL: https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm
 
       GH_TOKEN: ${{ github.token }}  # For gh release upload.
       REFRESH_CACHE: ${{ github.event_name == 'schedule' ||

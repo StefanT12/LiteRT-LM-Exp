@@ -13,17 +13,7 @@
 # limitations under the License.
 
 name: "CI-CMake"
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
-    inputs:
-      REFRESH_CACHE:
-        description: 'Refresh build cache'
-        type: boolean
-        default: false
+
 
 permissions:
   contents: read
@@ -38,7 +28,7 @@ env:
 
 jobs:
   presubmit:
-    name: "Presubmit-CMake-Linux"
+    name: "[Deprecated] Presubmit-CMake-Linux"
     runs-on: LiteRT_Linux_x64
     container:
       image: ubuntu:24.04
