@@ -28,14 +28,6 @@ on:
         description: 'Refresh cache to remove unused files'
         type: boolean
         default: true
-      halt-for-connection:
-        description: 'Should this workflow run wait for a remote connection?'
-        type: choice
-        required: true
-        default: 'yes'
-        options:
-          - 'yes'
-          - 'no'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -63,10 +55,6 @@ jobs:
       REFRESH_CACHE: ${{ github.event_name == 'schedule' ||
                          (github.event_name == 'workflow_dispatch' && inputs.REFRESH_CACHE) }}
     steps:
-      - name: Wait For Connection
-        uses: google-ml-infra/actions/ci_connection@7f5ca0c263a81ed09ea276524c1b9192f1304e3c
-        with:
-          halt-dispatch-input: ${{ inputs.halt-for-connection }}
 
       - name: Install System Dependencies
         run: |
@@ -106,7 +94,7 @@ jobs:
         run: |
           $linkPath = (Get-ChildItem -Path "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\*\bin\HostX64\x64\link.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           if (-not $linkPath) { throw "Could not locate MSVC link.exe" }
-          
+
           $manifestContent = @"
           <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
@@ -120,13 +108,13 @@ jobs:
           $manifestPath = "C:\TMP\longpath.manifest"
           if (-not (Test-Path "C:\TMP")) { New-Item -ItemType Directory -Path "C:\TMP" -Force }
           Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
-          
+
           $mtExe = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\mt.exe" -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
           if (-not $mtExe) { throw "Could not locate Windows SDK mt.exe" }
-          
+
           Write-Host "Injecting LongPath manifest into $linkPath using $mtExe"
           & $mtExe -nologo -manifest $manifestPath -outputresource:"$linkPath`;1"
-          
+
           if ($LASTEXITCODE -ne 0) { throw "mt.exe failed to patch the linker." }
 
       - name: Redirect Temp Directories to 500GB Workspace Drive
@@ -148,7 +136,7 @@ jobs:
       - name: Set up cache keys and bazel output base
         id: cache-keys
         run: |
-          $bigDrivePath = "C:\actions-runner\_work"
+          $bigDrivePath = "C:\_w"
           if (-not (Test-Path $bigDrivePath)) {
               New-Item -ItemType Directory -Path $bigDrivePath -Force
           }
