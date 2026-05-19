@@ -146,13 +146,13 @@ absl::StatusOr<Responses> SessionAdvanced::RunDecode(
   }
 
   absl::StatusOr<Responses> collected_responses;
+  int num_candidates = session_info_->session_config.GetNumOutputCandidates();
   collected_responses =
-      Responses(TaskState::kCreated, /*texts=*/
-                std::vector<std::string>(
-                    session_info_->session_config.GetNumOutputCandidates()),
-                /*scores=*/
-                std::vector<float>(
-                    session_info_->session_config.GetNumOutputCandidates()));
+      Responses(TaskState::kCreated,
+                /*response_texts=*/std::vector<std::string>(num_candidates),
+                /*scores=*/std::vector<float>(num_candidates),
+                /*token_lengths=*/{},
+                /*token_ids=*/std::vector<std::vector<int>>(num_candidates));
   int num_decode_tokens = 0;
   auto decode_sync_callback = [&collected_responses, &num_decode_tokens](
                                   absl::StatusOr<Responses> responses) {
@@ -187,6 +187,16 @@ absl::StatusOr<Responses> SessionAdvanced::RunDecode(
           absl::StrCat("Decode responses size mismatch: ",
                        collected_responses->GetTexts().size(), " vs ",
                        responses->GetTexts().size()));
+    }
+    // Accumulating the token IDs.
+    if (collected_responses->GetMutableTokenIds().size() ==
+        responses->GetTokenIds().size()) {
+      for (int i = 0; i < responses->GetTokenIds().size(); ++i) {
+        collected_responses->GetMutableTokenIds()[i].insert(
+            collected_responses->GetMutableTokenIds()[i].end(),
+            responses->GetTokenIds()[i].begin(),
+            responses->GetTokenIds()[i].end());
+      }
     }
     // Normalizing the scores by the number of decode tokens if the task is
     // completed.
