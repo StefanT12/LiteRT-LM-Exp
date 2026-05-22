@@ -16,6 +16,7 @@ import json
 import pathlib
 import threading
 from unittest import mock
+import urllib.error
 import urllib.request
 
 from absl.testing import absltest
@@ -25,6 +26,7 @@ from litert_lm_cli.commands import openai_handler
 from litert_lm_cli.commands import serve_util
 
 
+# TODO: b/502278017 - Move this integration test to e2e_tests.
 class ServeOpenAIIntegrationTest(absltest.TestCase):
 
   def setUp(self):
@@ -100,6 +102,55 @@ class ServeOpenAIIntegrationTest(absltest.TestCase):
           }],
       }
       self.assertDictEqual(res_body, expected_body)
+
+  def test_openai_responses_with_model_spec(self):
+    self.assertTrue(
+        self.model_path.exists(), f"Model not found at {self.model_path}"
+    )
+
+    mock_from_id = self.enter_context(
+        mock.patch.object(model.Model, "from_model_id", autospec=True)
+    )
+    mock_from_id.return_value = model.Model(
+        model_id="gemma3", model_path=str(self.model_path)
+    )
+
+    data = json.dumps({"model": "gemma3,cpu,1024", "input": "Say hi"}).encode(
+        "utf-8"
+    )
+
+    req = urllib.request.Request(
+        f"http://localhost:{self.port}/v1/responses",
+        data=data,
+        headers={"Content-Type": "application/json"},
+    )
+
+    with urllib.request.urlopen(req) as response:
+      self.assertEqual(response.getcode(), 200)
+      res_body = json.loads(response.read().decode("utf-8"))
+      self.assertLen(res_body.get("output", []), 1)
+
+  def test_openai_responses_invalid_model_spec(self):
+    mock_from_id = self.enter_context(
+        mock.patch.object(model.Model, "from_model_id", autospec=True)
+    )
+    mock_from_id.return_value = model.Model(
+        model_id="gemma3", model_path=str(self.model_path)
+    )
+
+    # "gemma3," is invalid because of the trailing comma.
+    data = json.dumps({"model": "gemma3,", "input": "Say hi"}).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"http://localhost:{self.port}/v1/responses",
+        data=data,
+        headers={"Content-Type": "application/json"},
+    )
+
+    with self.assertRaises(urllib.error.HTTPError) as cm:
+      with urllib.request.urlopen(req):
+        pass
+    self.assertEqual(cm.exception.code, 400)
 
 
 if __name__ == "__main__":
