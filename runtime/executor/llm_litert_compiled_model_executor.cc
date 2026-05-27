@@ -1270,10 +1270,18 @@ LlmLiteRtCompiledModelExecutorBase::CreateNewContext(
       std::make_unique<LlmProcessedContext>(
           lora_id, absl::flat_hash_map<absl::string_view, TensorBuffer>());
 
+  auto runtime_state = std::make_unique<RuntimeState>();
+  if (runtime_config.sampler_params.has_value()) {
+    runtime_state->rand_gen = std::make_shared<std::default_random_engine>(
+        runtime_config.sampler_params->seed());
+  } else {
+    runtime_state->rand_gen = std::make_shared<std::default_random_engine>(0);
+  }
+
   return std::make_unique<LlmContext>(
       std::move(processed_context),
       std::make_unique<RuntimeConfig>(std::move(runtime_config)),
-      std::make_unique<RuntimeState>());
+      std::move(runtime_state));
 }
 
 absl::StatusOr<std::unique_ptr<LlmContext>>
