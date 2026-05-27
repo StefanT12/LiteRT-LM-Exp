@@ -355,7 +355,7 @@ def run_server(
         "Start a server with a Gemini or OpenAI compatible API (alpha feature)"
     ),
 )
-@click.option("--host", default="localhost", type=str, help="Host to listen on")
+@click.option("--host", default="0.0.0.0", type=str, help="Host to listen on")
 @click.option("--port", default=9379, type=int, help="Port to listen on")
 @click.option(
     "--api",
