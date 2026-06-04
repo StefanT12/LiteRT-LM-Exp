@@ -20,6 +20,7 @@
   },
   "license": "Apache-2.0",
   "scripts": {
+    "prebuild": "node scripts/download-wasm.js",
     "build": "tsc",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
