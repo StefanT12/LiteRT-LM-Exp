@@ -1,0 +1,49 @@
+namespace litert.lm;
+
+enum EnumI8 : byte {
+  A = 0,
+  B = 1,
+}
+
+enum EnumI32 : int32 {
+  C = 0,
+  D = 2,
+}
+
+table SimpleTable1 {
+  vec_str: [string];
+}
+
+table SimpleTable2 {
+  vec_f32: [float32];
+}
+
+union TableUnion {
+  SimpleTable1,
+  SimpleTable2,
+}
+
+table TestTable {
+  i1: bool;
+  i8: byte;
+  u8: ubyte;
+  i32: int32;
+  u32: uint32;
+  i64: int64;
+  u64: uint64;
+  f32: float32;
+  f64: float64;
+  enum_b: EnumI8;
+  enum_i32: EnumI32;
+  str: string;
+  tab: TestTable;
+  unn: TableUnion;
+  vec_i32: [int32];
+  vec_f32: [float32];
+  vec_str: [string];
+  vec_table: [TestTable];
+  vec_unn: [TableUnion];
+  vec_aligned: [ubyte] (force_align: 16);
+}
+
+root_type TestTable;
