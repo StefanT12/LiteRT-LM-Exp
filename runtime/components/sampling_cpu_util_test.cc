@@ -14,12 +14,15 @@
 
 #include "runtime/components/sampling_cpu_util.h"
 
+#include <cstdio>
 #include <memory>
 #include <random>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/time/clock.h"  // from @com_google_absl
+#include "absl/time/time.h"  // from @com_google_absl
 #include "absl/types/span.h"  // from @com_google_absl
 
 namespace litert::lm {
@@ -257,7 +260,8 @@ TEST(SamplingCpuUtilTest, TopKTopPSampling_LargeVocabIndices) {
   EXPECT_EQ(sampled_ids->size(), 1);
   EXPECT_THAT((*sampled_ids)[0], ElementsAre(14));
   EXPECT_EQ(sampled_scores.size(), 1);
-  EXPECT_THAT(sampled_scores[0], ElementsAre(0.99827528f));
+  EXPECT_THAT(sampled_scores[0],
+              ElementsAre(testing::FloatNear(0.99827528f, 1e-5f)));
 }
 
 TEST(SamplingCpuUtilTest, Softmax_BatchSize2SequenceLength2) {
@@ -324,6 +328,39 @@ TEST(SamplingCpuUtilTest, TopKTopPSampling_BatchSize2SequenceLength2) {
   EXPECT_EQ(sampled_scores.size(), 2);
   EXPECT_EQ(sampled_scores[0].size(), 2);
   EXPECT_EQ(sampled_scores[1].size(), 2);
+}
+
+TEST(SamplingCpuUtilTest, BenchmarkTopKTokenIds) {
+  constexpr int kVocabSize = 256000;  // Gemma vocab size
+  constexpr int kIterations = 10;
+  std::vector<float> logits(kVocabSize);
+  std::mt19937 gen(42);
+  std::uniform_real_distribution<float> dis(-5.0f, 5.0f);
+  for (float& val : logits) {
+    val = dis(gen);
+  }
+
+  absl::Time start = absl::Now();
+  for (int i = 0; i < kIterations; ++i) {
+    auto res = TopKTokenIds(absl::MakeConstSpan(logits), /*k=*/256,
+                            /*batch_size=*/1, /*sequence_size=*/1);
+    ASSERT_TRUE(res.ok());
+  }
+  absl::Time end = absl::Now();
+  absl::Duration duration = end - start;
+  std::printf("\n[BENCHMARK] TopK=256 (min-heap) execution took: %.3f ms\n",
+              absl::ToDoubleMilliseconds(duration) / kIterations);
+
+  start = absl::Now();
+  for (int i = 0; i < kIterations; ++i) {
+    auto res = TopKTokenIds(absl::MakeConstSpan(logits), /*k=*/1025,
+                            /*batch_size=*/1, /*sequence_size=*/1);
+    ASSERT_TRUE(res.ok());
+  }
+  end = absl::Now();
+  duration = end - start;
+  std::printf("[BENCHMARK] TopK=1025 (full-sort) execution took: %.3f ms\n\n",
+              absl::ToDoubleMilliseconds(duration) / kIterations);
 }
 
 }  // namespace

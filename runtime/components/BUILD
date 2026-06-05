@@ -106,7 +106,7 @@ cc_library(
     srcs = ["sampling_cpu_util.cc"],
     hdrs = ["sampling_cpu_util.h"],
     deps = [
-        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -156,6 +156,7 @@ cc_test(
     deps = [
         ":sampling_cpu_util",
         "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
     ],
 )

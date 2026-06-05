@@ -24,6 +24,7 @@
 #include <random>
 #include <vector>
 
+#include "absl/algorithm/container.h"  // from @com_google_absl
 #include "absl/status/status.h"  // from @com_google_absl
 #include "absl/status/statusor.h"  // from @com_google_absl
 #include "absl/strings/str_cat.h"  // from @com_google_absl
@@ -55,6 +56,47 @@ absl::StatusOr<std::vector<std::vector<int>>> TopKTokenIds(
             std::distance(logits.begin() + (b * sequence_size + s) * vocab_size,
                           max_iterator);
         output_indices[b][s] = max_logit_idx;
+      }
+    }
+  } else if (k <= 1024) {
+    struct LogitIndex {
+      float logit;
+      int index;
+    };
+    auto min_heap_comp = [](const LogitIndex& l, const LogitIndex& r) {
+      return l.logit > r.logit;
+    };
+    for (int b = 0; b < batch_size; ++b) {
+      for (int s = 0; s < sequence_size; ++s) {
+        int offset = (b * sequence_size + s) * vocab_size;
+        int actual_k = std::min(k, vocab_size);
+
+        std::vector<LogitIndex> min_heap;
+        min_heap.reserve(actual_k);
+        for (int i = 0; i < actual_k; ++i) {
+          min_heap.push_back({logits[offset + i], i});
+        }
+        absl::c_make_heap(min_heap, min_heap_comp);
+
+        for (int i = actual_k; i < vocab_size; ++i) {
+          float val = logits[offset + i];
+          if (val > min_heap.front().logit) {
+            absl::c_pop_heap(min_heap, min_heap_comp);
+            min_heap.back() = {val, i};
+            absl::c_push_heap(min_heap, min_heap_comp);
+          }
+        }
+
+        std::sort(min_heap.begin(), min_heap.end(),
+                  [](const LogitIndex& a, const LogitIndex& b) {
+                    if (a.logit != b.logit) {
+                      return a.logit > b.logit;
+                    }
+                    return a.index < b.index;
+                  });
+        for (int i = 0; i < actual_k; ++i) {
+          output_indices[b][s * k + i] = min_heap[i].index;
+        }
       }
     }
   } else {
