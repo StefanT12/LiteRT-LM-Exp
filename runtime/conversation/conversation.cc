@@ -103,7 +103,7 @@ absl::StatusOr<ConversationConfig> ConversationConfig::CreateInternal(
     std::optional<ConstraintProviderConfig> constraint_provider_config,
     std::optional<std::vector<Channel>> overwrite_channels,
     bool filter_channel_content_from_kv_cache,
-    bool return_error_on_parse_failure) {
+    bool return_error_on_parse_failure, bool return_error_on_max_tokens_reached) {
   if (preface.has_value() && !std::holds_alternative<JsonPreface>(*preface)) {
     return absl::InvalidArgumentError("Only JsonPreface is supported for now.");
   }
@@ -169,7 +169,8 @@ absl::StatusOr<ConversationConfig> ConversationConfig::CreateInternal(
       session_config_copy, preface.value_or(JsonPreface()), prompt_template,
       processor_config, enable_constrained_decoding, prefill_preface_on_init,
       std::move(constraint_provider_config), std::move(channels),
-      filter_channel_content_from_kv_cache, return_error_on_parse_failure);
+      filter_channel_content_from_kv_cache, return_error_on_parse_failure,
+      return_error_on_max_tokens_reached);
 }
 
 absl::StatusOr<std::string>
@@ -552,7 +553,7 @@ absl::Status Conversation::SendMessageAsync(
               optional_args.args.value_or(std::monostate()),
               config_.GetChannels(), std::move(user_callback),
               std::move(cancel_callback), std::move(complete_message_callback),
-              open_channel_name));
+              open_channel_name, config_.return_error_on_max_tokens_reached()));
 
   ASSIGN_OR_RETURN(
       auto decode_config,
@@ -584,7 +585,9 @@ absl::Status Conversation::SendMessageAsync(
                 // status and do not proceed to decode.
                 (*callback)(responses.status());
               } else if (responses.ok() &&
-                         responses->GetTaskState() == TaskState::kCancelled) {
+                         (responses->GetTaskState() == TaskState::kCancelled ||
+                          responses->GetTaskState() ==
+                              TaskState::kMaxNumTokensReached)) {
                 (*callback)(responses);
               } else if (IsEmptyInputError(responses.status()) ||
                          responses->GetTaskState() == TaskState::kDone) {

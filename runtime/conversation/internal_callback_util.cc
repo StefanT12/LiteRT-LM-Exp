@@ -245,7 +245,8 @@ absl::AnyInvocable<void(absl::StatusOr<Responses>)> CreateInternalCallback(
     absl::AnyInvocable<void(absl::StatusOr<Message>)> user_callback,
     absl::AnyInvocable<void()> cancel_callback,
     absl::AnyInvocable<void(Message)> complete_message_callback,
-    const std::optional<std::string>& open_channel_name) {
+    const std::optional<std::string>& open_channel_name,
+    bool return_error_on_max_tokens_reached) {
   auto channels = GetChannels(model_data_processor, custom_channels);
 
   bool initial_inside_channel = false;
@@ -275,7 +276,8 @@ absl::AnyInvocable<void(absl::StatusOr<Responses>)> CreateInternalCallback(
           active_channel_start_pos = size_t(0),
           active_channel_start_size = size_t(0),
           active_channel_name = std::move(initial_active_channel_name),
-          open_channel_name](absl::StatusOr<Responses> responses) mutable {
+          open_channel_name,
+          return_error_on_max_tokens_reached](absl::StatusOr<Responses> responses) mutable {
     if (!responses.ok()) {
       // If the error is due to cancellation, then we should trigger the cancel
       // callback for removing the last message from the history.
@@ -294,11 +296,23 @@ absl::AnyInvocable<void(absl::StatusOr<Responses>)> CreateInternalCallback(
       return;
     }
 
+    if (responses->GetTaskState() == TaskState::kMaxNumTokensReached) {
+      if (return_error_on_max_tokens_reached) {
+        if (cancel_callback) {
+          cancel_callback();
+        }
+        user_callback(absl::ResourceExhaustedError(
+            "Max number of tokens reached, context window out of bounds"));
+        return;
+      }
+    }
+
     // If there are no more new responses, it means the model has finished
     // generating content, trigger the complete message callback and return an
     // OK status to indicate the inference is done.
     if (responses->GetTaskState() == TaskState::kDone ||
-        responses->GetTaskState() == TaskState::kMaxNumTokensReached) {
+        (!return_error_on_max_tokens_reached &&
+         responses->GetTaskState() == TaskState::kMaxNumTokensReached)) {
       SendCompleteMessage(user_callback, accumulated_response_text,
                           model_data_processor, processor_args, cursor,
                           complete_message_callback,

@@ -15,6 +15,7 @@
 #include "runtime/conversation/internal_callback_util.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -778,6 +779,60 @@ TEST_F(InternalCallbackChannelTest, OpenChannelAtStartWithEndTag) {
 
   EXPECT_THAT(output_, ElementsAre(ChannelMessage("hmm", "thought"),
                                    TextMessage(" world")));
+}
+
+TEST_F(InternalCallbackTest, MaxNumTokensReachedReturnsError) {
+  auto user_callback = CreateUserMessageCallback(output_, done_, status_);
+  bool cancel_called = false;
+  auto cancel_callback = [&]() { cancel_called = true; };
+  bool complete_called = false;
+  auto complete_message_callback = [&](const Message& message) {
+    complete_called = true;
+  };
+
+  auto callback = CreateInternalCallback(
+      *model_data_processor_, processor_args_, channels_,
+      std::move(user_callback), std::move(cancel_callback),
+      std::move(complete_message_callback), /*open_channel_name=*/std::nullopt,
+      /*return_error_on_max_tokens_reached=*/true);
+
+  callback(Responses(TaskState::kProcessing, {"Hello"}));
+  callback(Responses(TaskState::kMaxNumTokensReached));
+
+  EXPECT_TRUE(cancel_called);
+  EXPECT_FALSE(complete_called);
+  EXPECT_TRUE(done_);
+  EXPECT_THAT(status_, StatusIs(absl::StatusCode::kResourceExhausted));
+}
+
+TEST_F(InternalCallbackTest, MaxNumTokensReachedTreatedAsDoneWhenFlagIsFalse) {
+  auto user_callback = CreateUserMessageCallback(output_, done_, status_);
+  bool cancel_called = false;
+  auto cancel_callback = [&]() { cancel_called = true; };
+  Message final_message;
+  bool complete_called = false;
+  auto complete_message_callback = [&](const Message& message) {
+    final_message = message;
+    complete_called = true;
+  };
+
+  auto callback = CreateInternalCallback(
+      *model_data_processor_, processor_args_, channels_,
+      std::move(user_callback), std::move(cancel_callback),
+      std::move(complete_message_callback), /*open_channel_name=*/std::nullopt,
+      /*return_error_on_max_tokens_reached=*/false);
+
+  callback(Responses(TaskState::kProcessing, {"Hello"}));
+  callback(Responses(TaskState::kMaxNumTokensReached));
+
+  EXPECT_FALSE(cancel_called);
+  EXPECT_TRUE(complete_called);
+  EXPECT_TRUE(done_);
+  EXPECT_OK(status_);
+  EXPECT_THAT(final_message, testing::Eq(Message::parse(R"json({
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hello"}]
+              })json")));
 }
 
 }  // namespace
