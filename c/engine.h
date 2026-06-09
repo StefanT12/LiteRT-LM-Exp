@@ -309,6 +309,22 @@ LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_max_num_tokens(
     LiteRtLmEngineSettings* settings, int max_num_tokens);
 
+// Sets the number of threads for the CPU backend.
+//
+// @param settings The engine settings.
+// @param num_threads The number of threads.
+LITERT_LM_C_API_EXPORT
+void litert_lm_engine_settings_set_num_threads(LiteRtLmEngineSettings* settings,
+                                               int num_threads);
+
+// Sets the number of threads for the audio CPU backend.
+//
+// @param settings The engine settings.
+// @param num_threads The number of threads.
+LITERT_LM_C_API_EXPORT
+void litert_lm_engine_settings_set_audio_num_threads(
+    LiteRtLmEngineSettings* settings, int num_threads);
+
 // Sets whether the engine should load different sections of the litertlm file
 // in parallel. Defaults to true.
 //

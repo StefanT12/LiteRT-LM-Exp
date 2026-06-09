@@ -128,6 +128,15 @@ def common_inference_options(f):
       default="cpu",
       help="The backend to use.",
   )(f)
+  f = click.option(
+      "--cpu-thread-count",
+      type=click.IntRange(min=1),
+      default=None,
+      help=(
+          "The number of threads to use for the CPU backend. Only takes effect"
+          " when --backend is 'cpu'."
+      ),
+  )(f)
   return f
 
 

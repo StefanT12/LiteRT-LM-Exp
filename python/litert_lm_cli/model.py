@@ -136,7 +136,10 @@ def _backend_constraint(model_path: str) -> litert_lm.Backend:
 
 
 def parse_backend(
-    backend: str, *, model_obj: Model | None = None
+    backend: str,
+    *,
+    model_obj: Model | None = None,
+    cpu_thread_count: int | None = None,
 ) -> litert_lm.Backend:
   """Parses the backend string and resolves it against model constraints.
 
@@ -147,32 +150,29 @@ def parse_backend(
   Args:
     backend: The backend requested by the user (e.g., "cpu", "gpu", "npu").
     model_obj: Optional Model instance to check for constraints.
+    cpu_thread_count: Optional thread count for CPU backend.
 
   Returns:
     The resolved litert_lm.Backend to use.
   """
+  if model_obj is not None and isinstance(
+      _backend_constraint(model_obj.model_path), litert_lm.Backend.GPU
+  ):
+    click.echo(
+        click.style(
+            "Using GPU backend for this model because CPU is unsupported.",
+            fg="cyan",
+        )
+    )
+    return litert_lm.Backend.GPU()
+
   backend_lower = backend.lower()
   if backend_lower == "gpu":
-    requested = litert_lm.Backend.GPU()
+    return litert_lm.Backend.GPU()
   elif backend_lower == "npu":
-    requested = litert_lm.Backend.NPU()
+    return litert_lm.Backend.NPU()
   else:
-    requested = litert_lm.Backend.CPU()
-
-  # Force GPU if the model requires it (CPU is unsupported for artisan models).
-  if model_obj is not None:
-    if isinstance(
-        _backend_constraint(model_obj.model_path), litert_lm.Backend.GPU
-    ):
-      click.echo(
-          click.style(
-              "Using GPU backend for this model because CPU is unsupported.",
-              fg="cyan",
-          )
-      )
-      return litert_lm.Backend.GPU()
-
-  return requested
+    return litert_lm.Backend.CPU(thread_count=cpu_thread_count)
 
 
 @dataclasses.dataclass

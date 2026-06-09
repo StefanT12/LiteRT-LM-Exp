@@ -488,6 +488,34 @@ void litert_lm_engine_settings_set_max_num_tokens(
         max_num_tokens);
   }
 }
+
+void litert_lm_engine_settings_set_num_threads(LiteRtLmEngineSettings* settings,
+                                               int num_threads) {
+  if (settings && settings->settings) {
+    auto& main_settings = settings->settings->GetMutableMainExecutorSettings();
+    auto config = main_settings.MutableBackendConfig<litert::lm::CpuConfig>();
+    if (config.ok()) {
+      litert::lm::CpuConfig cpu_config = *config;
+      cpu_config.number_of_threads = num_threads;
+      main_settings.SetBackendConfig(cpu_config);
+    } else {
+      ABSL_LOG(WARNING) << "Failed to get CpuConfig to set num threads: "
+                        << config.status();
+    }
+  }
+}
+
+void litert_lm_engine_settings_set_audio_num_threads(
+    LiteRtLmEngineSettings* settings, int num_threads) {
+  if (settings && settings->settings) {
+    auto& audio_settings =
+        settings->settings->GetMutableAudioExecutorSettings();
+    if (audio_settings.has_value()) {
+      audio_settings->SetNumThreads(num_threads);
+    }
+  }
+}
+
 void litert_lm_engine_settings_set_parallel_file_section_loading(
     LiteRtLmEngineSettings* settings, bool parallel_file_section_loading) {
   if (settings && settings->settings) {

@@ -35,6 +35,7 @@ except ImportError:
 
 def run_benchmark(
     model_obj: model.Model,
+    *,
     prefill_tokens: int = 256,
     decode_tokens: int = 256,
     is_android: bool = False,
@@ -42,7 +43,8 @@ def run_benchmark(
     enable_speculative_decoding: bool | None = None,
     max_num_tokens: int | None = None,
     cache: str = "disk",
-):
+    cpu_thread_count: int | None = None,
+) -> None:
   """Benchmarks the model."""
   if not model_obj.exists():
     click.echo(
@@ -55,7 +57,9 @@ def run_benchmark(
     return
 
   try:
-    backend_val = model.parse_backend(backend)
+    backend_val = model.parse_backend(
+        backend, cpu_thread_count=cpu_thread_count
+    )
     cache_dir_val = common.cache_dir_value_from_cache_mode(cache)
 
     if is_android:
@@ -172,7 +176,8 @@ def benchmark(
     huggingface_token: str | None = None,
     max_num_tokens: int | None = None,
     cache: str = "disk",
-):
+    cpu_thread_count: int | None = None,
+) -> None:
   """Benchmarks a LiteRT-LM model.
 
   Args:
@@ -190,6 +195,7 @@ def benchmark(
     huggingface_token: The HuggingFace API token.
     max_num_tokens: Maximum number of tokens for the KV cache.
     cache: The cache mode to use (no, memory, or disk).
+    cpu_thread_count: The number of threads to use for CPU backend.
   """
   if verbose:
     litert_lm.set_min_log_severity(litert_lm.LogSeverity.VERBOSE)
@@ -218,6 +224,7 @@ def benchmark(
       enable_speculative_decoding=enable_speculative_decoding,
       max_num_tokens=max_num_tokens,
       cache=cache,
+      cpu_thread_count=cpu_thread_count,
   )
 
 

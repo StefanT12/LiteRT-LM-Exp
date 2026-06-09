@@ -102,6 +102,22 @@ class Engine(interfaces.AbstractEngine):
           "Verify the model path and backend."
       )
 
+    if (
+        isinstance(self.backend, interfaces.CPU)
+        and self.backend.thread_count is not None
+    ):
+      self._lib.litert_lm_engine_settings_set_num_threads(
+          settings, self.backend.thread_count
+      )
+
+    if (
+        isinstance(self.audio_backend, interfaces.CPU)
+        and self.audio_backend.thread_count is not None
+    ):
+      self._lib.litert_lm_engine_settings_set_audio_num_threads(
+          settings, self.audio_backend.thread_count
+      )
+
     if self.max_num_tokens is not None:
       self._lib.litert_lm_engine_settings_set_max_num_tokens(
           settings, self.max_num_tokens

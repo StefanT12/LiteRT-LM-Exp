@@ -496,6 +496,18 @@ class MainTest(absltest.TestCase):
     self.assertIn("custom-model", result.output)
     self.assertNotIn("Unknown", result.output)
 
+  def test_run_invalid_cpu_thread_count(self):
+    runner = CliRunner()
+    result = runner.invoke(
+        main.cli,
+        ["run", "my-model", "--cpu-thread-count", "0"],
+    )
+    self.assertNotEqual(result.exit_code, 0)
+    self.assertIn(
+        "Invalid value for '--cpu-thread-count': 0 is not in the range x>=1.",
+        result.output,
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -42,6 +42,15 @@ class Benchmark(interfaces.AbstractBenchmark):
       )
 
     lib.litert_lm_engine_settings_enable_benchmark(settings)
+
+    if (
+        isinstance(self.backend, interfaces.CPU)
+        and self.backend.thread_count is not None
+    ):
+      lib.litert_lm_engine_settings_set_num_threads(
+          settings, self.backend.thread_count
+      )
+
     if self.max_num_tokens is not None:
       lib.litert_lm_engine_settings_set_max_num_tokens(
           settings, self.max_num_tokens

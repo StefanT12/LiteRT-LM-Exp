@@ -146,6 +146,14 @@ def _setup_lib_signatures(lib):
       ctypes.c_void_p,
       ctypes.c_int,
   ]
+  lib.litert_lm_engine_settings_set_num_threads.argtypes = [
+      ctypes.c_void_p,
+      ctypes.c_int,
+  ]
+  lib.litert_lm_engine_settings_set_audio_num_threads.argtypes = [
+      ctypes.c_void_p,
+      ctypes.c_int,
+  ]
   lib.litert_lm_engine_settings_set_cache_dir.argtypes = [
       ctypes.c_void_p,
       c_string_p,

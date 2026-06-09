@@ -41,12 +41,19 @@ class Backend(abc.ABC):
 
   def __eq__(self, other: Any) -> bool:
     if type(self) is not type(other):
-      return False
+      return NotImplemented
     return True
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
 class CPU(Backend):
-  """CPU hardware backend for LiteRT-LM."""
+  """CPU hardware backend for LiteRT-LM.
+
+  Attributes:
+    thread_count: The number of threads to use for CPU backend.
+  """
+
+  thread_count: int | None = None
 
 
 class GPU(Backend):
