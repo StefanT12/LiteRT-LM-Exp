@@ -26,8 +26,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"  // from @com_google_absl
+#include "absl/strings/str_cat.h"  // from @com_google_absl
 #include "absl/strings/string_view.h"  // from @com_google_absl
-#include "absl/types/span.h"  // from @com_google_absl
 #include "litert/cc/litert_element_type.h"  // from @litert
 #include "litert/cc/litert_environment.h"  // from @litert
 #include "litert/cc/litert_layout.h"  // from @litert
@@ -39,6 +39,7 @@
 #include "litert/test/matchers.h"  // from @litert
 #include "runtime/components/model_resources.h"
 #include "runtime/executor/executor_settings_base.h"
+#include "runtime/util/file_util.h"
 #include "runtime/util/memory_mapped_file.h"
 #include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // IWYU pragma: keep
@@ -645,7 +646,7 @@ TEST(LlmLiteRTCompiledModelExecutorUtilsTest, SetGpuCacheOptions_Nocache) {
 
   auto model_path =
       std::filesystem::path(::testing::SrcDir()) /
-      "google3/runtime/testdata/test_lm.task";
+      "litert_lm/runtime/testdata/test_lm.task";
   ASSERT_OK_AND_ASSIGN(auto model_assets,
                        ModelAssets::Create(model_path.string()));
 
@@ -661,6 +662,85 @@ TEST(LlmLiteRTCompiledModelExecutorUtilsTest, SetGpuCacheOptions_Nocache) {
       executor_settings.GetWeightCacheFile(),
       executor_settings.GetProgramCacheFile(), "test_key", "test_prefix",
       /*cache_compiled_shaders_only=*/false, gpu_options));
+}
+
+TEST(LlmLiteRTCompiledModelExecutorUtilsTest, GetGpuModelCacheData_Nocache) {
+  auto model_path =
+      std::filesystem::path(::testing::SrcDir()) /
+      "litert_lm/runtime/testdata/test_lm.task";
+  ASSERT_OK_AND_ASSIGN(auto model_assets,
+                       ModelAssets::Create(model_path.string()));
+
+  class StubExecutorSettings : public ExecutorSettingsBase {
+   public:
+    explicit StubExecutorSettings(const ModelAssets& model_assets)
+        : ExecutorSettingsBase(model_assets) {}
+  };
+  StubExecutorSettings executor_settings(model_assets);
+  executor_settings.SetCacheDir(":nocache");
+
+  ASSERT_OK_AND_ASSIGN(auto cache_data,
+                       GetGpuModelCacheData(executor_settings, "test_cache"));
+  EXPECT_FALSE(cache_data.program_cache_file.ok());
+  EXPECT_FALSE(cache_data.weight_cache_file.ok());
+  EXPECT_TRUE(cache_data.cache_key.empty());
+}
+
+TEST(LlmLiteRTCompiledModelExecutorUtilsTest, GetGpuModelCacheData_WithCache) {
+  auto model_path =
+      std::filesystem::path(::testing::SrcDir()) /
+      "litert_lm/runtime/testdata/test_lm.task";
+  ASSERT_OK_AND_ASSIGN(auto model_assets,
+                       ModelAssets::Create(model_path.string()));
+
+  class StubExecutorSettings : public ExecutorSettingsBase {
+   public:
+    explicit StubExecutorSettings(const ModelAssets& model_assets)
+        : ExecutorSettingsBase(model_assets) {}
+  };
+  StubExecutorSettings executor_settings(model_assets);
+  executor_settings.SetCacheDir("/dummy/cache/dir");
+
+  // Create dummy scoped files to use as cache.
+  std::string temp_prog_cache =
+      (std::filesystem::path(::testing::TempDir()) / "prog_cache.bin").string();
+  std::string temp_weight_cache =
+      (std::filesystem::path(::testing::TempDir()) / "weight_cache.bin")
+          .string();
+  {
+    std::ofstream touch1(temp_prog_cache);
+    std::ofstream touch2(temp_weight_cache);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto prog_file,
+                       ScopedFile::OpenWritable(temp_prog_cache));
+  ASSERT_OK_AND_ASSIGN(auto weight_file,
+                       ScopedFile::OpenWritable(temp_weight_cache));
+
+  auto prog_file_ptr = std::make_shared<ScopedFile>(std::move(prog_file));
+  auto weight_file_ptr = std::make_shared<ScopedFile>(std::move(weight_file));
+
+  executor_settings.SetScopedProgramCacheFile(prog_file_ptr);
+  executor_settings.SetScopedCacheFile(weight_file_ptr);
+
+  ASSERT_OK_AND_ASSIGN(auto cache_data,
+                       GetGpuModelCacheData(executor_settings, "test_cache"));
+
+  ASSERT_OK(cache_data.program_cache_file);
+  ASSERT_OK(cache_data.weight_cache_file);
+
+  EXPECT_EQ(
+      std::get<std::shared_ptr<ScopedFile>>(*cache_data.program_cache_file),
+      prog_file_ptr);
+  EXPECT_EQ(
+      std::get<std::shared_ptr<ScopedFile>>(*cache_data.weight_cache_file),
+      weight_file_ptr);
+
+  ASSERT_OK_AND_ASSIGN(std::string expected_metadata_id,
+                       GetFileCacheIdentifier(model_path.string()));
+  std::string expected_cache_key =
+      absl::StrCat("test_lm.task", "test_cache", "_", expected_metadata_id);
+  EXPECT_EQ(cache_data.cache_key, expected_cache_key);
 }
 
 }  // namespace

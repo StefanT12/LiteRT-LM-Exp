@@ -57,7 +57,6 @@
 #include "runtime/executor/litert_compiled_model_executor_utils.h"
 #include "runtime/executor/llm_executor_io_types.h"
 #include "runtime/util/convert_tensor_buffer.h"  // IWYU pragma: keep
-#include "runtime/util/file_util.h"
 #include "runtime/util/status_macros.h"
 #include "runtime/util/tensor_buffer_util.h"
 #include "tflite/delegates/xnnpack/xnnpack_delegate.h"  // from @litert
@@ -131,7 +130,6 @@ constexpr absl::string_view kMaskOutName = "mask_out";
 constexpr absl::string_view kSegmentValuesName = "segment_values";
 constexpr absl::string_view kSegmentMaskName = "segment_mask";
 constexpr absl::string_view kPrevMaskName = "prev_mask";
-constexpr absl::string_view kPrevPrefix = "prev_";
 constexpr absl::string_view kFeatureStatesNamePattern = "feature_state";
 
 template <typename T>
@@ -177,15 +175,6 @@ absl::Status InitializeBuffers(std::vector<TensorBuffer>& buffers) {
 }
 
 inline int CeilIntDiv(int a, int b) { return (a + b - 1) / b; }
-
-bool IsStreamingEncoder(const std::vector<absl::string_view>& input_names) {
-  // A huristic to check if the model is a streaming model by checking if the
-  // input names contain the prev_mask name.
-  return std::any_of(input_names.begin(), input_names.end(),
-                     [](absl::string_view input_name) {
-                       return absl::StrContains(input_name, kPrevPrefix);
-                     });
-}
 
 }  // namespace
 
@@ -245,24 +234,14 @@ AudioLiteRtCompiledModelExecutor::AudioStaticEncoder::Initialize() {
       /*check_and_clean=*/true);
   if (executor_settings_.GetBackend() == Backend::GPU) {
     LITERT_ASSIGN_OR_RETURN(auto& gpu_options, options.GetGpuOptions());
-    ASSIGN_OR_RETURN(auto model_path,
-                     executor_settings_.GetModelAssets().GetPath());
-    absl::string_view model_basename = Basename(model_path);
-    auto program_cache_file = executor_settings_.GetProgramCacheFile(
-        absl::StrCat(AudioExecutorSettings::kStaticEncoderName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
-    auto weight_cache_file = executor_settings_.GetWeightCacheFile(
-        absl::StrCat(AudioExecutorSettings::kStaticEncoderName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
+    ASSIGN_OR_RETURN(
+        const auto cache_files,
+        GetGpuModelCacheData(executor_settings_,
+                             AudioExecutorSettings::kStaticEncoderName));
     RETURN_IF_ERROR(SetGpuOptions(executor_settings_, gpu_options));
-    ASSIGN_OR_RETURN(std::string metadata_id,
-                     GetFileCacheIdentifier(model_path));
     RETURN_IF_ERROR(SetGpuCacheOptions(
-        weight_cache_file, program_cache_file,
-        absl::StrCat(model_basename, AudioExecutorSettings::kStaticEncoderName,
-                     "_", metadata_id),
+        cache_files.weight_cache_file, cache_files.program_cache_file,
+        cache_files.cache_key,
         /*logging_prefix=*/AudioExecutorSettings::kStaticEncoderName,
         /*cache_compiled_shaders_only=*/false, gpu_options));
     options.SetHardwareAccelerators(litert::HwAccelerators::kGpu);
@@ -387,35 +366,22 @@ AudioLiteRtCompiledModelExecutor::AudioStreamingEncoder::Initialize() {
       /*check_and_clean=*/true);
   if (executor_settings_.GetBackend() == Backend::GPU) {
     LITERT_ASSIGN_OR_RETURN(auto& gpu_options, options.GetGpuOptions());
-    ASSIGN_OR_RETURN(auto model_path,
-                     executor_settings_.GetModelAssets().GetPath());
-    absl::string_view model_basename = Basename(model_path);
-    auto program_cache_file = executor_settings_.GetProgramCacheFile(
-        absl::StrCat(AudioExecutorSettings::kStreamingEncoderName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
-    auto weight_cache_file = executor_settings_.GetWeightCacheFile(
-        absl::StrCat(AudioExecutorSettings::kStreamingEncoderName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
+    ASSIGN_OR_RETURN(
+        const auto cache_files,
+        GetGpuModelCacheData(executor_settings_,
+                             AudioExecutorSettings::kStreamingEncoderName));
     RETURN_IF_ERROR(SetGpuOptions(executor_settings_, gpu_options));
-    ASSIGN_OR_RETURN(std::string metadata_id,
-                     GetFileCacheIdentifier(model_path));
     RETURN_IF_ERROR(SetGpuCacheOptions(
-        weight_cache_file, program_cache_file,
-        absl::StrCat(model_basename,
-                     AudioExecutorSettings::kStreamingEncoderName, "_",
-                     metadata_id),
+        cache_files.weight_cache_file, cache_files.program_cache_file,
+        cache_files.cache_key,
         /*logging_prefix=*/AudioExecutorSettings::kStreamingEncoderName,
         /*cache_compiled_shaders_only=*/false, gpu_options));
     options.SetHardwareAccelerators(litert::HwAccelerators::kGpu);
   } else if (executor_settings_.GetBackend() == Backend::CPU) {
     LITERT_ASSIGN_OR_RETURN(auto& cpu_options, options.GetCpuOptions());
     RETURN_IF_ERROR(SetCpuOptions(executor_settings_, cpu_options));
-
     RETURN_IF_ERROR(SetCpuCacheOptions(
         weight_cache_file, AudioExecutorSettings::kEncoderName, cpu_options));
-
     options.SetHardwareAccelerators(litert::HwAccelerators::kCpu);
 #if !defined(LITERT_DISABLE_NPU)
   } else if (executor_settings_.GetBackend() == Backend::NPU) {
@@ -593,23 +559,12 @@ absl::Status AudioLiteRtCompiledModelExecutor::AudioAdapter::Initialize() {
       /*check_and_clean=*/true);
   if (executor_settings_.GetBackend() == Backend::GPU) {
     LITERT_ASSIGN_OR_RETURN(auto& gpu_options, options.GetGpuOptions());
-    ASSIGN_OR_RETURN(auto model_path,
-                     executor_settings_.GetModelAssets().GetPath());
-    absl::string_view model_basename = Basename(model_path);
-    auto program_cache_file = executor_settings_.GetProgramCacheFile(
-        absl::StrCat(AudioExecutorSettings::kAdapterName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
-    auto weight_cache_file = executor_settings_.GetWeightCacheFile(
-        absl::StrCat(AudioExecutorSettings::kAdapterName,
-                     ExecutorSettingsBase::kMlDriftCacheSuffix),
-        /*check_and_clean=*/true);
-    ASSIGN_OR_RETURN(std::string metadata_id,
-                     GetFileCacheIdentifier(model_path));
+    ASSIGN_OR_RETURN(const auto cache_files,
+                     GetGpuModelCacheData(executor_settings_,
+                                          AudioExecutorSettings::kAdapterName));
     RETURN_IF_ERROR(SetGpuCacheOptions(
-        weight_cache_file, program_cache_file,
-        absl::StrCat(model_basename, AudioExecutorSettings::kAdapterName, "_",
-                     metadata_id),
+        cache_files.weight_cache_file, cache_files.program_cache_file,
+        cache_files.cache_key,
         /*logging_prefix=*/AudioExecutorSettings::kAdapterName,
         /*cache_compiled_shaders_only=*/false, gpu_options));
 

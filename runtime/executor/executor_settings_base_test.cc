@@ -29,6 +29,7 @@
 #include "runtime/util/file_data_stream.h"
 #include "runtime/util/file_util.h"
 #include "runtime/util/memory_mapped_file.h"
+#include "runtime/util/scoped_file.h"
 #include "runtime/util/test_utils.h"  // NOLINT
 
 namespace litert::lm {
@@ -257,6 +258,50 @@ class TestExecutorSettings : public ExecutorSettingsBase {
   explicit TestExecutorSettings(ModelAssets model_assets)
       : ExecutorSettingsBase(std::move(model_assets)) {}
 };
+
+TEST(LlmExecutorConfigTest, GetWeightCacheFileWithNoCache) {
+  auto model_assets = ModelAssets::Create("/path/to/model.tflite");
+  ASSERT_OK(model_assets);
+  TestExecutorSettings settings(*model_assets);
+  settings.SetCacheDir(":nocache");
+
+  auto result = settings.GetWeightCacheFile();
+  EXPECT_FALSE(result.ok());
+}
+
+TEST(LlmExecutorConfigTest, GetWeightCacheFileWithScopedFileDoesNotError) {
+  ASSERT_OK_AND_ASSIGN(auto scoped_file, ScopedFile::Open(GetTestModelPath()));
+  auto model_file_ptr = std::make_shared<ScopedFile>(std::move(scoped_file));
+  ASSERT_OK_AND_ASSIGN(auto model_assets, ModelAssets::Create(model_file_ptr));
+  TestExecutorSettings settings(model_assets);
+  settings.SetCacheDir("/cache/dir");
+  settings.SetScopedCacheFile(model_file_ptr);
+
+  auto result = settings.GetWeightCacheFile();
+  EXPECT_TRUE(result.ok());
+}
+
+TEST(LlmExecutorConfigTest, GetProgramCacheFileWithNoCache) {
+  auto model_assets = ModelAssets::Create("/path/to/model.tflite");
+  ASSERT_OK(model_assets);
+  TestExecutorSettings settings(*model_assets);
+  settings.SetCacheDir(":nocache");
+
+  auto result = settings.GetProgramCacheFile();
+  EXPECT_FALSE(result.ok());
+}
+
+TEST(LlmExecutorConfigTest, GetProgramCacheFileWithScopedFileDoesNotError) {
+  ASSERT_OK_AND_ASSIGN(auto scoped_file, ScopedFile::Open(GetTestModelPath()));
+  auto model_file_ptr = std::make_shared<ScopedFile>(std::move(scoped_file));
+  ASSERT_OK_AND_ASSIGN(auto model_assets, ModelAssets::Create(model_file_ptr));
+  TestExecutorSettings settings(model_assets);
+  settings.SetCacheDir("/cache/dir");
+  settings.SetScopedProgramCacheFile(model_file_ptr);
+
+  auto result = settings.GetProgramCacheFile();
+  EXPECT_TRUE(result.ok());
+}
 
 TEST(LlmExecutorConfigTest, GetProgramCacheFile) {
   auto model_assets = ModelAssets::Create("/path/to/model.tflite");

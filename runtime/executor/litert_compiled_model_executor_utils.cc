@@ -46,11 +46,12 @@
 #include "runtime/components/embedding_lookup/embedding_lookup_manager.h"
 #include "runtime/components/embedding_lookup/embedding_lookup_text.h"
 #include "runtime/components/model_resources.h"
-#include "runtime/components/model_resources_task.h"
 #include "runtime/components/model_resources_litert_lm.h"  // IWYU pragma: keep
+#include "runtime/components/model_resources_task.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/util/convert_tensor_buffer.h"
 #include "runtime/util/file_format_util.h"
+#include "runtime/util/file_util.h"
 #include "runtime/util/litert_lm_loader.h"
 #include "runtime/util/model_asset_bundle_resources.h"
 #include "runtime/util/scoped_file.h"
@@ -552,6 +553,33 @@ absl::Status SetGpuCacheOptions(
     gpu_options.SetSerializeProgramCache(false);
   }
   return absl::OkStatus();
+}
+
+absl::StatusOr<GpuModelCacheData> GetGpuModelCacheData(
+    const ExecutorSettingsBase& executor_settings,
+    absl::string_view cache_name) {
+  GpuModelCacheData cache_data;
+  // Skip if cache is explicitly disabled.
+  if (executor_settings.GetCacheDir() != ":nocache") {
+    auto model_path = executor_settings.GetModelAssets().GetPath().value_or("");
+    std::string model_basename = std::string(Basename(model_path));
+    cache_data.program_cache_file = executor_settings.GetProgramCacheFile(
+        absl::StrCat(cache_name, ExecutorSettingsBase::kMlDriftCacheSuffix),
+        /*check_and_clean=*/true);
+    cache_data.weight_cache_file = executor_settings.GetWeightCacheFile(
+        absl::StrCat(cache_name, ExecutorSettingsBase::kMlDriftCacheSuffix),
+        /*check_and_clean=*/true);
+    if (!model_path.empty()) {
+      ASSIGN_OR_RETURN(std::string metadata_id,
+                       GetFileCacheIdentifier(model_path));
+      if (cache_data.program_cache_file.ok() ||
+          cache_data.weight_cache_file.ok()) {
+        cache_data.cache_key =
+            absl::StrCat(model_basename, cache_name, "_", metadata_id);
+      }
+    }
+  }
+  return cache_data;
 }
 
 }  // namespace litert::lm

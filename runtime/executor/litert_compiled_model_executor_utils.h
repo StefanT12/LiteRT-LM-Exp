@@ -182,6 +182,23 @@ absl::Status SetGpuCacheOptions(
     absl::string_view cache_key, absl::string_view logging_prefix,
     bool cache_compiled_shaders_only, litert::GpuOptions& gpu_options);
 
+// A struct holding the GPU cache files and the cache key.
+struct GpuModelCacheData {
+  absl::StatusOr<
+      std::variant<std::string, std::shared_ptr<litert::lm::ScopedFile>>>
+      program_cache_file;
+  absl::StatusOr<
+      std::variant<std::string, std::shared_ptr<litert::lm::ScopedFile>>>
+      weight_cache_file;
+  std::string cache_key;
+};
+
+// Returns the program/weight cache files and the cache key for GPU execution,
+// unless cache is disabled (e.g. settings.GetCacheDir() is ":nocache").
+absl::StatusOr<GpuModelCacheData> GetGpuModelCacheData(
+    const ExecutorSettingsBase& executor_settings,
+    absl::string_view cache_name);
+
 }  // namespace litert::lm
 
 #endif  // THIRD_PARTY_ODML_INFRA_GENAI_INFERENCE_EXECUTOR_LITERT_COMPILED_MODEL_EXECUTOR_UTILS_H_
