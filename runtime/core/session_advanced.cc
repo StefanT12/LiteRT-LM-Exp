@@ -135,6 +135,28 @@ SessionAdvanced::RunPrefillAsync(
                                                   execution_manager_);
 }
 
+absl::StatusOr<std::unique_ptr<TaskController>>
+SessionAdvanced::PrefillPreprocessedContents(
+    std::vector<InputData> preprocessed_contents,
+    absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback) {
+  absl::MutexLock lock(mutex_);
+  auto cancelled = std::make_shared<std::atomic<bool>>(false);
+  auto execution_manager_lock = execution_manager_.lock();
+  if (execution_manager_lock == nullptr) {
+    return absl::FailedPreconditionError("Execution manager is not available.");
+  }
+
+  ASSIGN_OR_RETURN(auto task_id, execution_manager_lock->GetNewTaskId());
+  RETURN_IF_ERROR(execution_manager_lock->AddPrefillTask(
+      session_id_, task_id, std::move(preprocessed_contents), last_task_ids_,
+      cancelled, std::move(callback)));
+  session_state_ = SessionState::kPrefilled;
+  last_task_ids_ = {task_id};
+
+  return std::make_unique<AdvancedTaskController>(task_id, cancelled,
+                                                  execution_manager_);
+}
+
 absl::StatusOr<Responses> SessionAdvanced::RunDecode() {
   return RunDecode(DecodeConfig::CreateDefault());
 }

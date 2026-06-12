@@ -42,6 +42,7 @@
 #include "runtime/components/model_resources.h"
 #include "runtime/components/sentencepiece_tokenizer.h"
 #include "runtime/components/tokenizer.h"
+#include "runtime/core/session_utils.h"
 #include "runtime/engine/engine_settings.h"
 #include "runtime/engine/io_types.h"
 #include "runtime/executor/audio_executor_settings.h"
@@ -748,6 +749,95 @@ TEST_F(SessionAdvancedTest, RunPrefillAsync) {
   // Wait for the async call to finish.
   EXPECT_OK(execution_manager->WaitUntilAllDone(absl::Seconds(100)));
   EXPECT_TRUE(done);
+}
+
+TEST_F(SessionAdvancedTest, PrefillPreprocessedContentsSuccess) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.SetStartTokenId(2);
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetSamplerBackend(Backend::CPU);
+  ASSERT_OK_AND_ASSIGN(
+      auto executor,
+      CreateFakeLlmExecutor(
+          // "Hello World!"
+          /*prefill_tokens=*/{{2, 90, 547, 58, 735, 210, 466, 2294}},
+          // "How's it going?"
+          /*decode_tokens=*/{
+              {224}, {24}, {8}, {66}, {246}, {18}, {2295}, {2294}}));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ExecutionManager> execution_manager,
+      ThreadedExecutionManager::Create(tokenizer_.get(), model_resources_.get(),
+                                       std::move(executor),
+                                       /*vision_executor_settings=*/nullptr,
+                                       /*audio_executor_settings=*/nullptr,
+                                       /*litert_env=*/nullptr));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto session,
+      SessionAdvanced::Create(execution_manager, tokenizer_.get(),
+                              session_config, /*benchmark_info=*/std::nullopt));
+
+  std::vector<InputData> inputs;
+  inputs.emplace_back(InputText("Hello World!"));
+
+  std::optional<BenchmarkInfo> benchmark_info;
+  ASSERT_OK_AND_ASSIGN(
+      auto preprocessed_contents,
+      PreprocessContents(inputs, session_config, *tokenizer_, benchmark_info));
+
+  bool done = false;
+  auto callback = CreateTestCallback(done);
+  EXPECT_OK(session->PrefillPreprocessedContents(
+      std::move(preprocessed_contents), std::move(callback)));
+  // Wait for the async call to finish.
+  EXPECT_OK(execution_manager->WaitUntilAllDone(absl::Seconds(100)));
+  EXPECT_TRUE(done);
+}
+
+TEST_F(SessionAdvancedTest,
+       PrefillPreprocessedContentsExecutionManagerUnavailable) {
+  const std::vector<std::vector<int>> stop_token_ids = {{2294}};
+  SessionConfig session_config = SessionConfig::CreateDefault();
+  session_config.GetMutableSamplerParams() = sampler_params_;
+  session_config.SetStartTokenId(2);
+  session_config.GetMutableStopTokenIds() = stop_token_ids;
+  session_config.SetSamplerBackend(Backend::CPU);
+  ASSERT_OK_AND_ASSIGN(
+      auto executor,
+      CreateFakeLlmExecutor(
+          /*prefill_tokens=*/{{2, 90, 547, 58, 735, 210, 466, 2294}},
+          /*decode_tokens=*/{
+              {224}, {24}, {8}, {66}, {246}, {18}, {2295}, {2294}}));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ExecutionManager> execution_manager,
+      ThreadedExecutionManager::Create(tokenizer_.get(), model_resources_.get(),
+                                       std::move(executor),
+                                       /*vision_executor_settings=*/nullptr,
+                                       /*audio_executor_settings=*/nullptr,
+                                       /*litert_env=*/nullptr));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto session,
+      SessionAdvanced::Create(execution_manager, tokenizer_.get(),
+                              session_config, /*benchmark_info=*/std::nullopt));
+
+  std::vector<InputData> inputs;
+  inputs.emplace_back(InputText("Hello World!"));
+
+  std::optional<BenchmarkInfo> benchmark_info;
+  ASSERT_OK_AND_ASSIGN(
+      auto preprocessed_contents,
+      PreprocessContents(inputs, session_config, *tokenizer_, benchmark_info));
+
+  execution_manager.reset();
+
+  auto callback = [](absl::StatusOr<Responses> responses) {};
+  EXPECT_THAT(session->PrefillPreprocessedContents(
+                  std::move(preprocessed_contents), std::move(callback)),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       "Execution manager is not available."));
 }
 
 TEST_F(SessionAdvancedTest, RunDecodeAsyncWithInternalSampler) {

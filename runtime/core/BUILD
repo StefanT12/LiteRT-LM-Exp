@@ -248,7 +248,6 @@ cc_library(
         "//runtime/engine:engine_interface",
         "//runtime/engine:engine_settings",
         "//runtime/engine:io_types",
-        "//runtime/executor:llm_executor_io_types",
         "//runtime/framework/resource_management:execution_manager",
         "//runtime/proto:sampler_params_cc_proto",
         "//runtime/util:litert_status_util",
@@ -265,6 +264,7 @@ cc_test(
     tags = ["requires-mac-inputs:hard"],  # Required for running on Forge on Mac.
     deps = [
         ":session_advanced",
+        ":session_utils",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/functional:any_invocable",

@@ -181,6 +181,19 @@ class SessionInterface {
     return absl::UnimplementedError("Not implemented.");
   }
 
+  // Similar to RunPrefillAsync, but accepts preprocessed (e.g., tokenized)
+  // contents.
+  // This is a non-blocking call and the function will return right away. The
+  // processing status will be signaled through the callback.
+  // - preprocessed_contents: The preprocessed input data.
+  // - callback: Callback to receive the prefill results.
+  virtual absl::StatusOr<std::unique_ptr<TaskController>>
+  PrefillPreprocessedContents(
+      std::vector<InputData> preprocessed_contents,
+      absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback) {
+    return absl::UnimplementedError("Not implemented.");
+  }
+
   // Starts the decoding process for the model to predict the response based
   // on the input prompt/query added after using RunPrefill* functions.
   // This is a blocking call and the function will return when the decoding
