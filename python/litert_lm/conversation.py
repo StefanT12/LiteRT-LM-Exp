@@ -44,6 +44,7 @@ class Conversation(interfaces.AbstractConversation):
       automatic_tool_calling=True,
       extra_context=None,
       sampler_config=None,
+      lora_config=None,
   ):
     super().__init__(
         messages=messages,
@@ -52,6 +53,7 @@ class Conversation(interfaces.AbstractConversation):
         automatic_tool_calling=automatic_tool_calling,
         extra_context=extra_context,
         sampler_config=sampler_config,
+        lora_config=lora_config,
     )
     self._lib = lib
     self._ptr = conv_ptr

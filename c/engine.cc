@@ -19,7 +19,7 @@
 #include <cstring>
 #include <memory>
 #if defined(_WIN32)
-extern "C" intptr_t _get_osfhandle(int fd);
+#include <io.h>
 #endif
 #include <optional>
 #include <string>

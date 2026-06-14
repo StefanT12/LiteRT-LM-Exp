@@ -30,6 +30,8 @@ from .interfaces import AbstractEngine
 from .interfaces import AbstractSession
 from .interfaces import Backend
 from .interfaces import BenchmarkInfo
+from .interfaces import LoraConfig
+from .interfaces import LoraRankConfig
 from .interfaces import Responses
 from .interfaces import SamplerConfig
 from .interfaces import Tool
@@ -50,6 +52,8 @@ __all__ = (
     "Conversation",
     "Engine",
     "LogSeverity",
+    "LoraConfig",
+    "LoraRankConfig",
     "Message",
     "Responses",
     "Role",

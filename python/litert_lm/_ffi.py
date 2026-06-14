@@ -166,6 +166,28 @@ def _setup_lib_signatures(lib):
       ctypes.c_void_p,
       ctypes.c_bool,
   ]
+  lib.litert_lm_engine_settings_set_lora_rank.argtypes = [
+      ctypes.c_void_p,
+      ctypes.c_int,
+  ]
+  lib.litert_lm_engine_settings_set_supported_lora_ranks.restype = ctypes.c_int
+  lib.litert_lm_engine_settings_set_supported_lora_ranks.argtypes = [
+      ctypes.c_void_p,
+      ctypes.POINTER(ctypes.c_int),
+      ctypes.c_size_t,
+  ]
+  lib.litert_lm_engine_settings_set_audio_lora_rank.argtypes = [
+      ctypes.c_void_p,
+      ctypes.c_int,
+  ]
+  lib.litert_lm_engine_settings_set_supported_audio_lora_ranks.restype = (
+      ctypes.c_int
+  )
+  lib.litert_lm_engine_settings_set_supported_audio_lora_ranks.argtypes = [
+      ctypes.c_void_p,
+      ctypes.POINTER(ctypes.c_int),
+      ctypes.c_size_t,
+  ]
   lib.litert_lm_engine_settings_enable_benchmark.argtypes = [ctypes.c_void_p]
   lib.litert_lm_engine_settings_set_num_prefill_tokens.argtypes = [
       ctypes.c_void_p,
@@ -196,6 +218,16 @@ def _setup_lib_signatures(lib):
   lib.litert_lm_session_config_set_sampler_params.argtypes = [
       ctypes.c_void_p,
       ctypes.POINTER(LiteRtLmSamplerParams),
+  ]
+  lib.litert_lm_session_config_set_lora_path.restype = ctypes.c_int
+  lib.litert_lm_session_config_set_lora_path.argtypes = [
+      ctypes.c_void_p,
+      c_string_p,
+  ]
+  lib.litert_lm_session_config_set_audio_lora_path.restype = ctypes.c_int
+  lib.litert_lm_session_config_set_audio_lora_path.argtypes = [
+      ctypes.c_void_p,
+      c_string_p,
   ]
 
   # Session

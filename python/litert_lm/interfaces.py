@@ -205,6 +205,34 @@ class SamplerConfig:
       )
 
 
+@dataclasses.dataclass
+class LoraRankConfig:
+  """Configuration for LoRA ranks.
+
+  Attributes:
+      lora_rank: The rank of the text LoRA weights. If 0 or None, LoRA is
+        disabled.
+      audio_lora_rank: The rank of the audio LoRA weights. If 0 or None, audio
+        LoRA is disabled.
+  """
+
+  lora_rank: int | None = None
+  audio_lora_rank: int | None = None
+
+
+@dataclasses.dataclass
+class LoraConfig:
+  """Configuration for LoRA weights.
+
+  Attributes:
+      lora_path: Path to the text LoRA weights file.
+      audio_lora_path: Path to the audio LoRA weights file.
+  """
+
+  lora_path: str | None = None
+  audio_lora_path: str | None = None
+
+
 @dataclasses.dataclass(kw_only=True)
 class AbstractEngine(abc.ABC):
   """Abstract base class for LiteRT-LM engines.
@@ -221,6 +249,7 @@ class AbstractEngine(abc.ABC):
         None, use the model's default. If True, enable speculative decoding; an
         error will be thrown if the model does not support it. If False, disable
         it.
+      lora_rank_config: Configuration for LoRA ranks.
       bos_token_id: The BOS token id for the model if one is configured.
       eos_token_ids: Stop token sequences configured for the model.
   """
@@ -232,6 +261,7 @@ class AbstractEngine(abc.ABC):
   vision_backend: Backend | None = None
   audio_backend: Backend | None = None
   enable_speculative_decoding: bool | None = None
+  lora_rank_config: LoraRankConfig | None = None
 
   def __enter__(self) -> AbstractEngine:
     """Initializes the engine resources."""
@@ -258,6 +288,7 @@ class AbstractEngine(abc.ABC):
       extra_context: collections.abc.Mapping[str, Any] | None = None,
       filter_channel_content_from_kv_cache: bool = False,
       sampler_config: SamplerConfig | None = None,
+      lora_config: LoraConfig | None = None,
   ) -> AbstractConversation:
     """Creates a new conversation for this engine.
 
@@ -275,6 +306,7 @@ class AbstractEngine(abc.ABC):
           persisted in the KV cache.
         sampler_config: Configuration for the sampling process. If None, then
           uses the engine's default values.
+        lora_config: Configuration for LoRA adapters.
     """
 
   @abc.abstractmethod
@@ -283,6 +315,7 @@ class AbstractEngine(abc.ABC):
       *,
       apply_prompt_template: bool = True,
       sampler_config: SamplerConfig | None = None,
+      lora_config: LoraConfig | None = None,
   ) -> AbstractSession:
     """Creates a new session for this engine.
 
@@ -291,6 +324,7 @@ class AbstractEngine(abc.ABC):
           the session.
         sampler_config: Configuration for the sampling process. If None, then
           uses the engine's default values.
+        lora_config: Configuration for LoRA adapters.
 
     Returns:
         A new session instance for low-level interaction with the model.
@@ -325,6 +359,7 @@ class AbstractConversation(abc.ABC):
       automatic_tool_calling: Whether to automatically call tools.
       extra_context: Extra context for the chat template.
       sampler_config: Configuration for the sampling process.
+      lora_config: Configuration for LoRA adapters.
   """
 
   def __init__(
@@ -342,6 +377,7 @@ class AbstractConversation(abc.ABC):
       automatic_tool_calling: bool = True,
       extra_context: collections.abc.Mapping[str, Any] | None = None,
       sampler_config: SamplerConfig | None = None,
+      lora_config: LoraConfig | None = None,
   ):
     """Initializes the instance.
 
@@ -355,6 +391,7 @@ class AbstractConversation(abc.ABC):
         extra_context: Extra context for the chat template.
         sampler_config: Configuration for the sampling process. If None, then
           uses the engine's default values.
+        lora_config: Configuration for LoRA adapters.
     """
     self.messages = messages or []
     self.tools = tools or []
@@ -362,6 +399,7 @@ class AbstractConversation(abc.ABC):
     self.automatic_tool_calling = automatic_tool_calling
     self.extra_context = extra_context or {}
     self.sampler_config = sampler_config
+    self.lora_config = lora_config
 
   def __enter__(self) -> AbstractConversation:
     """Initializes the conversation."""
