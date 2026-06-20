@@ -359,8 +359,11 @@ cc_library(
     name = "skia_image_preprocessor",
     srcs = ["skia_image_preprocessor.cc"],
     hdrs = ["skia_image_preprocessor.h"],
+    # TODO(b/525650328): Remove once Skia supports PNG and JPEG decoding.
+    defines = ["LITERT_USE_SKIA"],
     deps = [
         ":image_preprocessor",
+        ":image_preprocessor_utils",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -390,10 +393,24 @@ cc_library(
     hdrs = ["image_preprocessor_utils.h"],
     deps = [
         ":image_preprocessor",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
-    ],
+        "@com_google_absl//absl/types:span",
+        "//runtime/engine:io_types",
+    ] + select({
+        "@litert//litert:litert_link_capi_so": [
+            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+        ],
+        "//conditions:default": [
+            "@litert//litert/cc:litert_layout",
+            "@litert//litert/cc:litert_macros",
+            "@litert//litert/cc:litert_ranked_tensor_type",
+            "@litert//litert/cc:litert_tensor_buffer",
+        ],
+    }),
 )
 
 cc_test(
@@ -405,5 +422,17 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-    ],
+        "//runtime/engine:io_types",
+        "//runtime/util:test_utils",
+    ] + select({
+        "@litert//litert:litert_link_capi_so": [
+            "@litert//litert/cc:litert_api_with_dynamic_runtime",
+        ],
+        "//conditions:default": [
+            "@litert//litert/cc:litert_layout",
+            "@litert//litert/cc:litert_macros",
+            "@litert//litert/cc:litert_ranked_tensor_type",
+            "@litert//litert/cc:litert_tensor_buffer",
+        ],
+    }),
 )
