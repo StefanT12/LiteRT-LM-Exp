@@ -24,7 +24,6 @@
 #include "runtime/engine/litert_lm_lib.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>  // NOLINT
 #include <iostream>
 #include <memory>
@@ -483,17 +482,7 @@ absl::StatusOr<EngineSettings> CreateEngineSettings(
     engine_settings.GetMutableMainExecutorSettings().SetMaxNumTokens(
         settings.max_num_tokens);
   }
-  bool force_f32 = settings.force_f32;
-#if defined(__linux__)
-  // May consider enable this for other platforms (Windows, macOS)
-  if (char* env_force_f32 = std::getenv("LITERT_LM_FORCE_F32")) {
-    if (*env_force_f32 == '1') {
-      force_f32 = true;
-      ABSL_LOG(INFO) << "LITERT_LM_FORCE_F32 is set";
-    }
-  }
-#endif
-  if (force_f32) {
+  if (settings.force_f32) {
     engine_settings.GetMutableMainExecutorSettings().SetActivationDataType(
         litert::lm::ActivationDataType::FLOAT32);
     if (settings.vision_backend.has_value()) {
