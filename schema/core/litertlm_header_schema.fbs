@@ -21,19 +21,53 @@
 namespace litert.lm.schema;
 
 // Structs for primitive types
-table UInt8 { value: ubyte; }
-table Int8 { value: byte; }
-table UInt16 { value: ushort; }
-table Int16 { value: short; }
-table UInt32 { value: uint; }
-table Int32 { value: int; }
-table Float32 { value: float; }
-table Bool { value: bool; }
-table UInt64 { value: ulong; }
-table Int64 { value: long; }
-table Double { value: double; }
+table UInt8 {
+  value:ubyte;
+}
 
-table StringValue { value: string; }
+table Int8 {
+  value:byte;
+}
+
+table UInt16 {
+  value:ushort;
+}
+
+table Int16 {
+  value:short;
+}
+
+table UInt32 {
+  value:uint;
+}
+
+table Int32 {
+  value:int;
+}
+
+table Float32 {
+  value:float;
+}
+
+table Bool {
+  value:bool;
+}
+
+table UInt64 {
+  value:ulong;
+}
+
+table Int64 {
+  value:long;
+}
+
+table Double {
+  value:double;
+}
+
+table StringValue {
+  value:string;
+}
 
 // Union for the value in KeyValuePair
 union VData {
@@ -50,7 +84,6 @@ union VData {
   Int64,
   Double,
 }
-
 
 // For external facing metadata
 table KeyValuePair {
@@ -69,17 +102,17 @@ table SystemMetadata {
 // For any changes here, the schema version should be adjusted (pure section
 // additions constitute a minor version bump). Sections cannot be re-ordered and
 // or removed unless the major version is bumped.
-enum AnySectionDataType: ubyte {
-  NONE, // Default value if no type is set.
-  GenericBinaryData, // For any user-specified/previously unknown data.
-  Deprecated, // For edited files with outdated sections.
-  TFLiteModel, // Corresponds to a tflite.Model.
-  SP_Tokenizer, // A SentencePiece Tokenizer.
-  LlmMetadataProto, // A litert.lm.proto.LlmMetadata Protobuf.
-  HF_Tokenizer_Zlib, // A HuggingFace Tokenizer's JSON config (zlib compressed).
-  TFLiteWeights, // A external weight file for a tflite.Model. This is used
-                 // together with TFLiteModel section to form a complete
-                 // tflite.Model with weights.
+enum AnySectionDataType:ubyte {
+  NONE,  // Default value if no type is set.
+  GenericBinaryData,  // For any user-specified/previously unknown data.
+  Deprecated,  // For edited files with outdated sections.
+  TFLiteModel,  // Corresponds to a tflite.Model.
+  SP_Tokenizer,  // A SentencePiece Tokenizer.
+  LlmMetadataProto,  // A litert.lm.proto.LlmMetadata Protobuf.
+  HF_Tokenizer_Zlib,  // A HuggingFace Tokenizer's JSON config (zlib compressed).
+  TFLiteWeights,  // A external weight file for a tflite.Model. This is used
+// together with TFLiteModel section to form a complete
+// tflite.Model with weights.
 }
 
 // Section offsets and datatype
@@ -89,12 +122,11 @@ enum AnySectionDataType: ubyte {
 // number such that K * BLOCK_SIZE > Section[i].end_offset.
 // In the LitRT-LM file format, BLOCK_SIZE = 16 * 1024.
 table SectionObject {
-  items:[KeyValuePair]; // (optional)
+  items:[KeyValuePair];  // (optional)
   begin_offset:ulong;
   end_offset:ulong;
-  data_type:AnySectionDataType; // Enum to indicate the type of 'data'
+  data_type:AnySectionDataType;  // Enum to indicate the type of 'data'
 }
-
 
 table SectionMetadata {
   objects:[SectionObject] (required);
@@ -108,5 +140,4 @@ table LiteRTLMMetaData {
 root_type LiteRTLMMetaData;
 
 //  //schema/core/litertlm_header.h,
-//  //third_party/odml/litert/litert/python/internal/litertlm_header_schema.fbs,
 //)
