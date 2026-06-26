@@ -159,6 +159,26 @@ SessionConfig CreateSessionConfig(const LiteRtLmSettings& settings);
 absl::Status RunLiteRtLm(const LiteRtLmSettings& settings,
                          std::vector<LitertLmMetrics>* metrics = nullptr);
 
+// Returns true if stdout is a TTY and colors should be used.
+bool UseColor();
+
+// Prints a JSON-formatted message to stdout and captures the text content.
+// Handles streaming and non-streaming modes, as well as multiple channels
+// (e.g. thinking vs final answer) and applies color coding if UseColor() is
+// true.
+//
+// Parameters:
+//   - message: The JSON message to print.
+//   - captured_output: Stream to collect the raw text content (without tags or
+//   colors).
+//   - active_channel: In streaming mode, tracks the currently active channel.
+//                     Must be persisted between calls for the same stream.
+//   - streaming: Set to true if printing chunks as they arrive.
+absl::Status PrintMessage(const nlohmann::ordered_json& message,
+                          std::stringstream& captured_output,
+                          std::string* active_channel = nullptr,
+                          bool streaming = false);
+
 }  // namespace lm
 }  // namespace litert
 

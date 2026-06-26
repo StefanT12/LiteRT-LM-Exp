@@ -16,7 +16,10 @@
 
 #include <filesystem>  // NOLINT
 #include <fstream>
+#include <iostream>
 #include <optional>
+#include <sstream>
+#include <streambuf>
 #include <string>
 #include <vector>
 
@@ -38,6 +41,30 @@ namespace {
 
 using ::nlohmann::json;
 using ::testing::status::StatusIs;
+class CooptStdout {
+ public:
+  CooptStdout() : old_buf_(std::cout.rdbuf(buffer_.rdbuf())) {}
+  ~CooptStdout() { std::cout.rdbuf(old_buf_); }
+  std::string GetOutput() const { return buffer_.str(); }
+
+ private:
+  std::stringstream buffer_;
+  std::streambuf* old_buf_;
+};
+
+std::string ColorBlue(const std::string& s) {
+  if (UseColor()) {
+    return std::string("\033[34m") + s + "\033[0m";
+  }
+  return s;
+}
+
+std::string ColorYellow(const std::string& s) {
+  if (UseColor()) {
+    return std::string("\033[33m") + s + "\033[0m";
+  }
+  return s;
+}
 
 TEST(BuildContentListTest, TextOnly) {
   LiteRtLmSettings settings;
@@ -466,6 +493,130 @@ TEST(LiteRtLmLibTest, RunLiteRtLmWithDeepseekMetadataTokenizer) {
   // test litertlm file, we only run 32 tokens.
   settings.max_num_tokens = 32;
   EXPECT_OK(RunLiteRtLm(settings));
+}
+TEST(PrintMessageTest, ContentArray) {
+  json message = {
+      {"role", "assistant"},
+      {"content", json::array({{{"type", "text"}, {"text", "Hello "}},
+                               {{"type", "text"}, {"text", "world!"}}})}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(PrintMessage(message, captured_output));
+  EXPECT_EQ(captured_output.str(), "Hello world!\n");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorYellow("Hello ") + ColorYellow("world!") + "\n");
+}
+
+TEST(PrintMessageTest, ContentObject) {
+  json message = {{"role", "assistant"},
+                  {"content", {{"type", "text"}, {"text", "Hello object!"}}}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(PrintMessage(message, captured_output));
+  EXPECT_EQ(captured_output.str(), "Hello object!\n");
+  EXPECT_EQ(coopt.GetOutput(), ColorYellow("Hello object!") + "\n");
+}
+
+TEST(PrintMessageTest, ContentString) {
+  json message = {{"role", "assistant"}, {"content", "Hello string!"}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(PrintMessage(message, captured_output));
+  EXPECT_EQ(captured_output.str(), "Hello string!\n");
+  EXPECT_EQ(coopt.GetOutput(), ColorYellow("Hello string!") + "\n");
+}
+
+TEST(PrintMessageTest, ChannelsStreaming) {
+  json message = {{"role", "assistant"},
+                  {"channels", {{"thought", "Thinking... "}}}};
+  std::stringstream captured_output;
+  std::string active_channel;
+  CooptStdout coopt;
+  EXPECT_OK(PrintMessage(message, captured_output, &active_channel,
+                         /*streaming=*/true));
+  EXPECT_EQ(captured_output.str(), "Thinking... ");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorBlue("[thought] ") + ColorBlue("Thinking... "));
+  EXPECT_EQ(active_channel, "thought");
+
+  // Next chunk in same channel
+  json message2 = {{"role", "assistant"},
+                   {"channels", {{"thought", "more thinking."}}}};
+  EXPECT_OK(PrintMessage(message2, captured_output, &active_channel,
+                         /*streaming=*/true));
+  EXPECT_EQ(captured_output.str(), "Thinking... more thinking.");
+  EXPECT_EQ(coopt.GetOutput(), ColorBlue("[thought] ") +
+                                   ColorBlue("Thinking... ") +
+                                   ColorBlue("more thinking."));
+  EXPECT_EQ(active_channel, "thought");
+
+  // Switch channel
+  json message3 = {{"role", "assistant"},
+                   {"channels", {{"answer", "Final answer."}}}};
+  EXPECT_OK(PrintMessage(message3, captured_output, &active_channel,
+                         /*streaming=*/true));
+  EXPECT_EQ(captured_output.str(), "Thinking... more thinking.Final answer.");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorBlue("[thought] ") + ColorBlue("Thinking... ") +
+                ColorBlue("more thinking.") + ColorBlue("[/thought]") + "\n" +
+                ColorBlue("[answer] ") + ColorBlue("Final answer."));
+  EXPECT_EQ(active_channel, "answer");
+}
+
+TEST(PrintMessageTest, ChannelsNonStreaming) {
+  json message = {{"role", "assistant"},
+                  {"channels", {{"thought", "Thinking process."}}}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(
+      PrintMessage(message, captured_output, nullptr, /*streaming=*/false));
+  EXPECT_EQ(captured_output.str(), "Thinking process.\n");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorBlue("[thought] Thinking process.[/thought]") + "\n");
+}
+
+TEST(PrintMessageTest, BothContentAndChannels) {
+  json message = {{"role", "assistant"},
+                  {"content", "Final answer."},
+                  {"channels", {{"thought", "Thinking process."}}}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(
+      PrintMessage(message, captured_output, nullptr, /*streaming=*/false));
+  EXPECT_EQ(captured_output.str(), "Thinking process.Final answer.\n");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorBlue("[thought] Thinking process.[/thought]") + "\n" +
+                ColorYellow("Final answer.") + "\n");
+}
+
+TEST(PrintMessageTest, ToolCall) {
+  json message = {{"role", "assistant"}, {"tool_calls", json::array()}};
+  std::stringstream captured_output;
+  CooptStdout coopt;
+  EXPECT_OK(PrintMessage(message, captured_output));
+  EXPECT_EQ(captured_output.str(), "");
+  EXPECT_EQ(coopt.GetOutput(), "");
+}
+
+TEST(PrintMessageTest, InvalidMessage) {
+  json message = {{"role", "assistant"}};
+  std::stringstream captured_output;
+  EXPECT_THAT(PrintMessage(message, captured_output),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(PrintMessageTest, StreamingTransitionChannelToContent) {
+  std::stringstream captured_output;
+  std::string active_channel = "thought";
+  CooptStdout coopt;
+
+  json message = {{"role", "assistant"}, {"content", "Final answer."}};
+  EXPECT_OK(PrintMessage(message, captured_output, &active_channel,
+                         /*streaming=*/true));
+  EXPECT_EQ(captured_output.str(), "Final answer.");
+  EXPECT_EQ(coopt.GetOutput(),
+            ColorBlue("[/thought]") + "\n" + ColorYellow("Final answer."));
+  EXPECT_EQ(active_channel, "");
 }
 
 }  // namespace

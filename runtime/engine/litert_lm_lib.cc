@@ -23,6 +23,12 @@
 
 #include "runtime/engine/litert_lm_lib.h"
 
+#if defined(_WIN32)
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <cstdint>
 #include <filesystem>  // NOLINT
 #include <iostream>
@@ -87,6 +93,21 @@ constexpr int kMemoryCheckIntervalMs = 50;
 const absl::Duration kWaitUntilDoneTimeout = absl::Minutes(10);
 
 namespace {
+
+std::string ColorBlue(const std::string& s) {
+  if (UseColor()) {
+    return std::string("\033[34m") + s + "\033[0m";
+  }
+  return s;
+}
+
+std::string ColorYellow(const std::string& s) {
+  if (UseColor()) {
+    return std::string("\033[33m") + s + "\033[0m";
+  }
+  return s;
+}
+
 // Creates the ModelAssets from the LiteRtLmSettings.
 absl::StatusOr<ModelAssets> CreateModelAssets(
     const LiteRtLmSettings& settings) {
@@ -119,57 +140,24 @@ std::optional<Backend> GetSamplerBackend(const LiteRtLmSettings& settings) {
   return *sampler_backend;
 }
 
-absl::Status PrintMessage(const Message& message,
-                          std::stringstream& captured_output,
-                          bool streaming = false) {
-  std::stringstream output;
-  if (message.contains("content")) {
-    if (message["content"].is_array()) {
-      for (const auto& content : message["content"]) {
-        if (content.contains("type") && content["type"] == "text" &&
-            content.contains("text")) {
-          captured_output << content["text"].get<std::string>();
-          output << content["text"].get<std::string>();
-        }
-      }
-
-    } else if (message["content"].is_object() &&
-               message["content"].contains("text") &&
-               message["content"]["text"].is_string()) {
-      captured_output << message["content"]["text"].get<std::string>();
-      output << message["content"]["text"].get<std::string>();
-    }
-
-    if (streaming) {
-      std::cout << output.str() << std::flush;
-    } else {
-      captured_output << std::endl;
-      std::cout << output.str() << std::endl;
-    }
-    return absl::OkStatus();
-  }
-
-  if (message.contains("tool_calls") ||
-      (message.contains("type") && message["type"] == "function")) {
-    // Gracefully handle function calls without throwing or failing
-    return absl::OkStatus();
-  }
-
-  return absl::InvalidArgumentError("Invalid message: " + message.dump());
-}
 
 absl::AnyInvocable<void(absl::StatusOr<Message>)> CreatePrintMessageCallback(
     std::stringstream& captured_output) {
-  return [&captured_output](absl::StatusOr<Message> message) {
+  auto active_channel = std::make_shared<std::string>();
+  return [&captured_output, active_channel](absl::StatusOr<Message> message) {
     if (!message.ok()) {
       std::cout << message.status().message() << std::endl;
       return;
     }
     if (message->is_null()) {
-      std::cout << std::endl << std::flush;
+      if (active_channel && !active_channel->empty()) {
+        std::cout << ColorBlue("[/" + *active_channel + "]") << std::endl;
+      } else {
+        std::cout << std::endl << std::flush;
+      }
       return;
     }
-    auto status = PrintMessage(*message, captured_output,
+    auto status = PrintMessage(*message, captured_output, active_channel.get(),
                                /*streaming=*/true);
     if (!status.ok()) {
       ABSL_LOG(ERROR) << "Failed to print message: " << status;
@@ -243,7 +231,8 @@ absl::StatusOr<Message> RunSingleTurnConversation(
             json::object({{"role", "user"}, {"content", content_list}}),
             std::move(optional_args)));
     if (should_print_output) {
-      RETURN_IF_ERROR(PrintMessage(model_message, captured_output));
+      RETURN_IF_ERROR(PrintMessage(model_message, captured_output, nullptr,
+                                   /*streaming=*/false));
     }
     RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
     return model_message;
@@ -298,7 +287,8 @@ absl::Status RunMultiTurnConversation(const LiteRtLmSettings& settings,
           conversation->SendMessage(
               json::object({{"role", "user"}, {"content", content_list}}),
               std::move(optional_args)));
-      RETURN_IF_ERROR(PrintMessage(model_message, captured_output));
+      RETURN_IF_ERROR(PrintMessage(model_message, captured_output, nullptr,
+                                   /*streaming=*/false));
     }
   } while (true);
   RETURN_IF_ERROR(CheckExpectedOutput(captured_output.str(), settings));
@@ -877,6 +867,98 @@ absl::Status RunLiteRtLm(const LiteRtLmSettings& settings,
   }
 
   return absl::OkStatus();
+}
+
+bool UseColor() {
+#if defined(_WIN32)
+  return _isatty(1);
+#else
+  return isatty(1);
+#endif
+}
+
+absl::Status PrintMessage(const nlohmann::ordered_json& message,
+                          std::stringstream& captured_output,
+                          std::string* active_channel, bool streaming) {
+  std::stringstream output;
+  bool printed_something = false;
+
+  if (message.contains("channels") && message["channels"].is_object()) {
+    for (const auto& [channel_name, channel_content] :
+         message["channels"].items()) {
+      if (channel_content.is_string()) {
+        std::string content_str = channel_content.get<std::string>();
+        if (streaming) {
+          if (active_channel && *active_channel != channel_name) {
+            if (!active_channel->empty()) {
+              output << ColorBlue("[/" + *active_channel + "]") << "\n";
+            }
+            output << ColorBlue("[" + channel_name + "] ");
+            *active_channel = channel_name;
+          }
+          output << ColorBlue(content_str) << std::flush;
+        } else {
+          output << ColorBlue("[" + channel_name + "] " + content_str + "[/" +
+                              channel_name + "]")
+                 << "\n";
+        }
+        captured_output << content_str;
+        printed_something = true;
+      }
+    }
+  }
+
+  if (message.contains("content")) {
+    if (streaming && active_channel && !active_channel->empty()) {
+      output << ColorBlue("[/" + *active_channel + "]") << "\n";
+      *active_channel = "";
+    }
+
+    if (message["content"].is_array()) {
+      for (const auto& content : message["content"]) {
+        if (content.contains("type") && content["type"] == "text" &&
+            content.contains("text")) {
+          captured_output << content["text"].get<std::string>();
+          output << ColorYellow(content["text"].get<std::string>());
+          printed_something = true;
+        }
+      }
+    } else if (message["content"].is_object() &&
+               message["content"].contains("text") &&
+               message["content"]["text"].is_string()) {
+      captured_output << message["content"]["text"].get<std::string>();
+      output << ColorYellow(message["content"]["text"].get<std::string>());
+      printed_something = true;
+    } else if (message["content"].is_string()) {
+      captured_output << message["content"].get<std::string>();
+      output << ColorYellow(message["content"].get<std::string>());
+      printed_something = true;
+    }
+  }
+
+  if (printed_something) {
+    if (streaming) {
+      std::cout << output.str() << std::flush;
+    } else {
+      captured_output << std::endl;
+      std::string out_str = output.str();
+      std::cout << out_str;
+      if (out_str.empty() || out_str.back() != '\n') {
+        std::cout << std::endl;
+      } else {
+        std::cout << std::flush;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  if (message.contains("tool_calls") ||
+      (message.contains("type") && message["type"] == "function")) {
+    // Gracefully handle function calls without throwing or failing
+    return absl::OkStatus();
+  }
+
+  return absl::InvalidArgumentError("Invalid message: " + message.dump());
 }
 
 }  // namespace lm
