@@ -39,6 +39,7 @@
 #include "runtime/components/logits_processor/constrained_decoding/constraint_provider_config.h"
 #include "runtime/components/logits_processor/constrained_decoding/constraint_provider_factory.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
 #include "runtime/components/prompt_template.h"
 #include "runtime/conversation/channel_util.h"
 #include "runtime/conversation/internal_callback_util.h"
@@ -107,7 +108,8 @@ absl::StatusOr<ConversationConfig> ConversationConfig::CreateInternal(
     bool return_error_on_parse_failure, bool return_error_on_max_tokens_reached,
     bool enable_thinking, bool stream_tool_calls,
     const std::string& stream_tool_calls_channel_name,
-    RepetitionPenaltyConfig repetition_penalty_config) {
+    RepetitionPenaltyConfig repetition_penalty_config,
+    SuppressTokensConfig suppress_tokens_config) {
   if (preface.has_value() && !std::holds_alternative<JsonPreface>(*preface)) {
     return absl::InvalidArgumentError("Only JsonPreface is supported for now.");
   }
@@ -175,7 +177,8 @@ absl::StatusOr<ConversationConfig> ConversationConfig::CreateInternal(
       std::move(constraint_provider_config), std::move(channels),
       filter_channel_content_from_kv_cache, return_error_on_parse_failure,
       return_error_on_max_tokens_reached, enable_thinking, stream_tool_calls,
-      stream_tool_calls_channel_name, repetition_penalty_config);
+      stream_tool_calls_channel_name, std::move(repetition_penalty_config),
+      std::move(suppress_tokens_config));
 }
 
 absl::StatusOr<std::string>
@@ -299,6 +302,7 @@ absl::StatusOr<DecodeConfig> Conversation::CreateDecodeConfig(
   auto decode_config = DecodeConfig::CreateDefault();
 
   decode_config.SetRepetitionPenaltyConfig(config_.repetition_penalty_config());
+  decode_config.SetSuppressTokensConfig(config_.suppress_tokens_config());
 
   if (max_output_tokens.has_value()) {
     decode_config.SetMaxOutputTokens(max_output_tokens.value());

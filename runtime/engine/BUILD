@@ -105,6 +105,7 @@ cc_library(
         "@litert//litert/cc:litert_tensor_buffer",
         "@litert//support/util:io_types",
         "//runtime/components/logits_processor:repetition_penalty_config",
+        "//runtime/components/logits_processor:suppress_tokens_config",
         "//runtime/components/logits_processor/constrained_decoding:constraint",
         "//runtime/proto:engine_cc_proto",
         "//runtime/util:litert_status_util",

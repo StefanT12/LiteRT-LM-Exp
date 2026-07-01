@@ -288,7 +288,8 @@ absl::StatusOr<std::unique_ptr<TaskController>> SessionAdvanced::RunDecodeAsync(
 
   RETURN_IF_ERROR(execution_manager_lock->AddDecodeTask(
       session_id_, task_id, last_task_ids_,
-      decode_config.GetRepetitionPenaltyConfig(), decode_config.GetConstraint(),
+      decode_config.GetRepetitionPenaltyConfig(),
+      decode_config.GetSuppressTokensConfig(), decode_config.GetConstraint(),
       cancelled, std::move(callback),
       decode_config.GetMaxOutputTokens().value_or(
           session_info_->session_config.GetMaxOutputTokens())));

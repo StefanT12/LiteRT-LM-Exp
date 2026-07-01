@@ -27,6 +27,7 @@
 #include "support/tokenizer/tokenizer.h"  // from @litert
 #include "runtime/components/logits_processor/constrained_decoding/constraint.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
 #include "runtime/components/sampler.h"
 #include "runtime/components/stop_token_detector.h"
 #include "runtime/engine/io_types.h"
@@ -46,7 +47,8 @@ absl::StatusOr<Responses> Decode(
     const StopTokenDetector& stop_token_detector, int num_output_candidates,
     std::optional<BenchmarkInfo>& benchmark_info,
     std::optional<Sampler*> sampler,
-    RepetitionPenaltyConfig repetition_penalty_config, Constraint* constraint,
+    RepetitionPenaltyConfig repetition_penalty_config,
+    SuppressTokensConfig suppress_tokens_config, Constraint* constraint,
     std::optional<litert::TensorBuffer> decoded_ids,
     absl::AnyInvocable<void(absl::StatusOr<Responses>)>& callback,
     std::atomic<bool>* cancelled,

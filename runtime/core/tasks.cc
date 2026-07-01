@@ -42,6 +42,8 @@
 #include "runtime/components/logits_processor/logits_processor.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
 #include "runtime/components/logits_processor/repetition_penalty_processor.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_processor.h"
 #include "runtime/components/sampler.h"
 #include "runtime/components/scoring_cpu_util.h"
 #include "runtime/components/stop_token_detector.h"
@@ -118,6 +120,7 @@ class DecodeOneStep {
                 std::optional<BenchmarkInfo>& benchmark_info,
                 std::optional<Sampler*> sampler,
                 RepetitionPenaltyConfig repetition_penalty_config,
+                SuppressTokensConfig suppress_tokens_config,
                 Constraint* constraint)
       : executor_(*executor),
         tokenizer_(*tokenizer),
@@ -129,8 +132,14 @@ class DecodeOneStep {
       repetition_penalty_processor_ =
           std::make_unique<RepetitionPenaltyProcessor>(
               num_output_candidates_, tokenizer_.GetVocabSize(),
-              repetition_penalty_config);
+              std::move(repetition_penalty_config));
       logits_processors_.push_back(repetition_penalty_processor_.get());
+    }
+    if (suppress_tokens_config.enabled()) {
+      suppress_tokens_processor_ = std::make_unique<SuppressTokensProcessor>(
+          num_output_candidates_, tokenizer_.GetVocabSize(),
+          std::move(suppress_tokens_config));
+      logits_processors_.push_back(suppress_tokens_processor_.get());
     }
     if (constraint != nullptr) {
       constrained_decoder_ = std::make_unique<ConstrainedDecoder>(
@@ -402,6 +411,7 @@ class DecodeOneStep {
   const int num_output_candidates_;
   std::optional<Sampler*> sampler_;
   std::unique_ptr<RepetitionPenaltyProcessor> repetition_penalty_processor_;
+  std::unique_ptr<SuppressTokensProcessor> suppress_tokens_processor_;
   std::unique_ptr<ConstrainedDecoder> constrained_decoder_;
   std::vector<LogitsProcessor*> logits_processors_;
   std::optional<BenchmarkInfo> benchmark_info_;
@@ -463,7 +473,8 @@ absl::StatusOr<Responses> Decode(
     const StopTokenDetector& stop_token_detector, int num_output_candidates,
     std::optional<BenchmarkInfo>& benchmark_info,
     std::optional<Sampler*> sampler,
-    RepetitionPenaltyConfig repetition_penalty_config, Constraint* constraint,
+    RepetitionPenaltyConfig repetition_penalty_config,
+    SuppressTokensConfig suppress_tokens_config, Constraint* constraint,
     std::optional<litert::TensorBuffer> decoded_ids,
     absl::AnyInvocable<void(absl::StatusOr<Responses>)>& callback,
     std::atomic<bool>* cancelled, int max_output_tokens) {
@@ -498,7 +509,8 @@ absl::StatusOr<Responses> Decode(
   const int max_num_tokens = TryGetMaxNumTokens(executor);
   DecodeOneStep run_one_step(&executor, &tokenizer, num_output_candidates,
                              stop_token_detector, benchmark_info, sampler,
-                             repetition_penalty_config, constraint);
+                             std::move(repetition_penalty_config),
+                             std::move(suppress_tokens_config), constraint);
   while (true) {
     if (cancelled != nullptr && cancelled->load()) {
       if (benchmark_info.has_value()) {
@@ -654,6 +666,7 @@ absl::StatusOr<Responses> Score(
                              dummy_stop_token_detector, benchmark_info,
                              /*sampler=*/std::nullopt,
                              RepetitionPenaltyConfig::Default(),
+                             SuppressTokensConfig::Default(),
                              /*constraint=*/nullptr);
   std::vector<std::vector<int>> ids_for_each_target_in_batch;
   ids_for_each_target_in_batch.reserve(target_texts.size());

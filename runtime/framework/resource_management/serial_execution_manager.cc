@@ -42,6 +42,7 @@
 #include "litert/cc/litert_tensor_buffer.h"  // from @litert
 #include "runtime/components/logits_processor/constrained_decoding/constraint.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
 #include "runtime/components/model_resources.h"
 #include "runtime/components/sampler.h"
 #include "runtime/components/sampler_factory.h"
@@ -748,6 +749,7 @@ absl::Status SerialExecutionManager::AddPrefillTask(
 absl::Status SerialExecutionManager::AddDecodeTask(
     SessionId session_id, TaskId task_id, absl::flat_hash_set<TaskId> dep_tasks,
     RepetitionPenaltyConfig repetition_penalty_config,
+    SuppressTokensConfig suppress_tokens_config,
     Constraint* absl_nullable constraint,
     std::shared_ptr<std::atomic<bool>> absl_nonnull cancelled,
     absl::AnyInvocable<void(absl::StatusOr<Responses>)> callback,
@@ -756,8 +758,10 @@ absl::Status SerialExecutionManager::AddDecodeTask(
     callback = [](absl::StatusOr<Responses>) {};
   }
 
-  auto task = [this, task_id, repetition_penalty_config, constraint,
-               max_output_tokens]() mutable {
+  auto task = [this, task_id,
+               repetition_penalty_config = std::move(repetition_penalty_config),
+               suppress_tokens_config = std::move(suppress_tokens_config),
+               constraint, max_output_tokens]() mutable {
     auto task_info_or = StartTask(task_id);
     if (!task_info_or.ok()) {
       FinishTaskAndLogErrors(task_id, task_info_or.status(),
@@ -801,8 +805,9 @@ absl::Status SerialExecutionManager::AddDecodeTask(
     auto responses = Tasks::Decode(
         *llm_executor.value(), *tokenizer_, *session_info->stop_token_detector,
         num_output_candidates, session_info->benchmark_info, optional_sampler,
-        repetition_penalty_config, constraint, std::move(decoded_ids_buffer),
-        callback, cancelled.get(), max_output_tokens);
+        std::move(repetition_penalty_config), std::move(suppress_tokens_config),
+        constraint, std::move(decoded_ids_buffer), callback, cancelled.get(),
+        max_output_tokens);
 
     if (!responses.ok() && absl::IsCancelled(responses.status())) {
       responses = Responses(TaskState::kCancelled);

@@ -24,12 +24,15 @@
 #include <vector>
 
 #include "absl/base/nullability.h"  // from @com_google_absl
+#include "absl/status/status.h"  // from @com_google_absl
+#include "absl/status/statusor.h"  // from @com_google_absl
+#include "absl/strings/string_view.h"  // from @com_google_absl
 #include "absl/time/time.h"  // from @com_google_absl
 #include "support/util/io_types.h"  // from @litert
 #include "runtime/components/logits_processor/constrained_decoding/constraint.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
 #include "runtime/proto/engine.pb.h"
-#include "runtime/util/status_macros.h"
 
 namespace litert::lm {
 
@@ -317,6 +320,18 @@ class DecodeConfig {
     return repetition_penalty_config_;
   }
 
+  // Sets the suppress tokens config to suppress specific tokens during
+  // decoding.
+  void SetSuppressTokensConfig(
+      const SuppressTokensConfig& suppress_tokens_config) {
+    suppress_tokens_config_ = suppress_tokens_config;
+  }
+
+  // Returns the suppress tokens config.
+  SuppressTokensConfig GetSuppressTokensConfig() const {
+    return suppress_tokens_config_;
+  }
+
   // Sets the optional constraint used to guide the generation.
   // `DecodeConfig` does not take ownership of the `constraint`, which must
   // outlives the single generation process.
@@ -340,6 +355,8 @@ class DecodeConfig {
 
   RepetitionPenaltyConfig repetition_penalty_config_ =
       RepetitionPenaltyConfig::Default();
+  SuppressTokensConfig suppress_tokens_config_ =
+      SuppressTokensConfig::Default();
   Constraint* absl_nullable constraint_ = nullptr;
   std::optional<int> max_output_tokens_ = std::nullopt;
 };

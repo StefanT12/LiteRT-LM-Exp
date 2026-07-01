@@ -34,6 +34,7 @@
 #include "runtime/components/logits_processor/constrained_decoding/constraint_provider.h"
 #include "runtime/components/logits_processor/constrained_decoding/constraint_provider_config.h"
 #include "runtime/components/logits_processor/repetition_penalty_config.h"
+#include "runtime/components/logits_processor/suppress_tokens_config.h"
 #include "runtime/components/prompt_template.h"
 #include "runtime/conversation/io_types.h"
 #include "runtime/conversation/model_data_processor/config_registry.h"
@@ -117,6 +118,11 @@ class ConversationConfig {
   // Returns the repetition penalty config for the repetition penalty processor.
   const RepetitionPenaltyConfig& repetition_penalty_config() const {
     return repetition_penalty_config_;
+  }
+
+  // Returns the suppress tokens config for the suppress tokens processor.
+  const SuppressTokensConfig& suppress_tokens_config() const {
+    return suppress_tokens_config_;
   }
 
  public:
@@ -232,8 +238,15 @@ class ConversationConfig {
 
     // Sets the repetition penalty config for the repetition penalty processor.
     Builder& SetRepetitionPenaltyConfig(
-        const RepetitionPenaltyConfig& repetition_penalty_config) {
-      repetition_penalty_config_ = repetition_penalty_config;
+        RepetitionPenaltyConfig repetition_penalty_config) {
+      repetition_penalty_config_ = std::move(repetition_penalty_config);
+      return *this;
+    }
+
+    // Sets the suppress tokens config for the suppress tokens processor.
+    Builder& SetSuppressTokensConfig(
+        SuppressTokensConfig suppress_tokens_config) {
+      suppress_tokens_config_ = std::move(suppress_tokens_config);
       return *this;
     }
 
@@ -245,7 +258,7 @@ class ConversationConfig {
           filter_channel_content_from_kv_cache_, return_error_on_parse_failure_,
           return_error_on_max_tokens_reached_, enable_thinking_,
           stream_tool_calls_, stream_tool_calls_channel_name_,
-          repetition_penalty_config_);
+          repetition_penalty_config_, suppress_tokens_config_);
     }
 
     // Returns a unique pointer to a ConversationConfig.
@@ -272,6 +285,8 @@ class ConversationConfig {
     std::string stream_tool_calls_channel_name_ = "tool_call";
     RepetitionPenaltyConfig repetition_penalty_config_ =
         RepetitionPenaltyConfig::Default();
+    SuppressTokensConfig suppress_tokens_config_ =
+        SuppressTokensConfig::Default();
   };
 
   // Returns the constrained decoding config.
@@ -308,6 +323,8 @@ class ConversationConfig {
   // - `channels`: The channels configured for the conversation.
   // - `repetition_penalty_config`: The configuration for the repetition penalty
   //     processor.
+  // - `suppress_tokens_config`: The configuration for the suppress tokens
+  //     processor.
   static absl::StatusOr<ConversationConfig> CreateInternal(
       const Engine& engine, const SessionConfig& session_config,
       std::optional<Preface> preface = std::nullopt,
@@ -325,7 +342,9 @@ class ConversationConfig {
       bool enable_thinking = false, bool stream_tool_calls = false,
       const std::string& stream_tool_calls_channel_name = "tool_call",
       RepetitionPenaltyConfig repetition_penalty_config =
-          RepetitionPenaltyConfig::Default());
+          RepetitionPenaltyConfig::Default(),
+      SuppressTokensConfig suppress_tokens_config =
+          SuppressTokensConfig::Default());
 
   explicit ConversationConfig(
       SessionConfig session_config, Preface preface,
@@ -341,7 +360,9 @@ class ConversationConfig {
       bool enable_thinking = false, bool stream_tool_calls = false,
       const std::string& stream_tool_calls_channel_name = "tool_call",
       RepetitionPenaltyConfig repetition_penalty_config =
-          RepetitionPenaltyConfig::Default())
+          RepetitionPenaltyConfig::Default(),
+      SuppressTokensConfig suppress_tokens_config =
+          SuppressTokensConfig::Default())
       : session_config_(std::move(session_config)),
         preface_(std::move(preface)),
         prompt_template_(std::move(prompt_template)),
@@ -357,7 +378,8 @@ class ConversationConfig {
         enable_thinking_(enable_thinking),
         stream_tool_calls_(stream_tool_calls),
         stream_tool_calls_channel_name_(stream_tool_calls_channel_name),
-        repetition_penalty_config_(std::move(repetition_penalty_config)) {}
+        repetition_penalty_config_(std::move(repetition_penalty_config)),
+        suppress_tokens_config_(std::move(suppress_tokens_config)) {}
 
   SessionConfig session_config_;
   Preface preface_;
@@ -374,6 +396,7 @@ class ConversationConfig {
   bool stream_tool_calls_;
   std::string stream_tool_calls_channel_name_;
   RepetitionPenaltyConfig repetition_penalty_config_;
+  SuppressTokensConfig suppress_tokens_config_;
 };
 
 // Optional arguments for sending a message to the LLM.
