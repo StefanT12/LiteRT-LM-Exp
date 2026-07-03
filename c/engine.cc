@@ -63,6 +63,12 @@ struct LiteRtLmSamplerParams {
   int32_t seed;
 };
 
+struct LiteRtLmStreamChunk {
+  const char* text = nullptr;
+  bool is_final = false;
+  const char* error_msg = nullptr;
+};
+
 namespace {
 
 absl::AnyInvocable<void(absl::StatusOr<litert::lm::Responses>)> CreateCallback(
@@ -70,24 +76,40 @@ absl::AnyInvocable<void(absl::StatusOr<litert::lm::Responses>)> CreateCallback(
   return [callback,
           callback_data](absl::StatusOr<litert::lm::Responses> responses) {
     if (!responses.ok()) {
-      callback(callback_data, /*text=*/nullptr, /*is_final=*/true,
-               responses.status().ToString().c_str());
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      std::string error_str = responses.status().ToString();
+      chunk.error_msg = error_str.c_str();
+      callback(callback_data, &chunk);
       return;
     }
     if (responses->GetTaskState() == litert::lm::TaskState::kDone) {
-      callback(callback_data, /*text=*/nullptr, /*is_final=*/true,
-               /*error_message=*/nullptr);
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      chunk.error_msg = nullptr;
+      callback(callback_data, &chunk);
     } else if (responses->GetTaskState() ==
                litert::lm::TaskState::kMaxNumTokensReached) {
-      callback(callback_data, /*text=*/nullptr, /*is_final=*/true,
-               "Max number of tokens reached.");
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      chunk.error_msg = "Max number of tokens reached.";
+      callback(callback_data, &chunk);
     } else if (responses->GetTaskState() == litert::lm::TaskState::kCancelled) {
-      callback(callback_data, /*text=*/nullptr, /*is_final=*/true,
-               "CANCELLED.");
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      chunk.error_msg = "CANCELLED.";
+      callback(callback_data, &chunk);
     } else {
       for (const auto& text : responses->GetTexts()) {
-        callback(callback_data, text.data(), /*is_final=*/false,
-                 /*error_message=*/nullptr);
+        LiteRtLmStreamChunk chunk;
+        chunk.text = text.data();
+        chunk.is_final = false;
+        chunk.error_msg = nullptr;
+        callback(callback_data, &chunk);
       }
     }
   };
@@ -98,14 +120,26 @@ CreateConversationCallback(LiteRtLmStreamCallback callback, void* user_data) {
   return [callback, user_data](absl::StatusOr<litert::lm::Message> message) {
     if (!message.ok()) {
       std::string error_str = message.status().ToString();
-      callback(user_data, nullptr, true, const_cast<char*>(error_str.c_str()));
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      chunk.error_msg = error_str.c_str();
+      callback(user_data, &chunk);
       return;
     }
     if (message->empty()) {  // End of stream marker
-      callback(user_data, nullptr, true, nullptr);
+      LiteRtLmStreamChunk chunk;
+      chunk.text = nullptr;
+      chunk.is_final = true;
+      chunk.error_msg = nullptr;
+      callback(user_data, &chunk);
     } else {
       std::string json_str = message->dump();
-      callback(user_data, const_cast<char*>(json_str.c_str()), false, nullptr);
+      LiteRtLmStreamChunk chunk;
+      chunk.text = json_str.c_str();
+      chunk.is_final = false;
+      chunk.error_msg = nullptr;
+      callback(user_data, &chunk);
     }
   };
 }
@@ -1577,6 +1611,18 @@ LiteRtLmTokenUnions* litert_lm_engine_get_stop_tokens(LiteRtLmEngine* engine) {
   c_tokens->tokens.assign(metadata->stop_tokens().begin(),
                           metadata->stop_tokens().end());
   return c_tokens;
+}
+
+const char* litert_lm_stream_chunk_get_text(const LiteRtLmStreamChunk* chunk) {
+  return chunk ? chunk->text : nullptr;
+}
+
+bool litert_lm_stream_chunk_is_final(const LiteRtLmStreamChunk* chunk) {
+  return chunk ? chunk->is_final : false;
+}
+
+const char* litert_lm_stream_chunk_get_error(const LiteRtLmStreamChunk* chunk) {
+  return chunk ? chunk->error_msg : nullptr;
 }
 
 }  // extern "C"

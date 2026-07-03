@@ -419,13 +419,14 @@ public class Conversation {
 /// A callback function to bridge the C callback to the Swift AsyncThrowingStream.
 private func streamCallback(
   userData: UnsafeMutableRawPointer?,
-  responseJson: UnsafePointer<CChar>?,
-  isFinal: Bool,
-  errorMessage: UnsafePointer<CChar>?
+  chunk: OpaquePointer?
 ) {
   guard let userData = userData else { return }
 
   let context = Unmanaged<Conversation.StreamContext>.fromOpaque(userData).takeUnretainedValue()
+
+  let isFinal = litert_lm_stream_chunk_is_final(chunk)
+  let errorMessage = litert_lm_stream_chunk_get_error(chunk)
 
   if let errorMessage = errorMessage {
     let errorString = String(cString: errorMessage)
@@ -436,7 +437,7 @@ private func streamCallback(
     return
   }
 
-  if let responseJson = responseJson {
+  if let responseJson = litert_lm_stream_chunk_get_text(chunk) {
     let responseString = String(cString: responseJson)
     do {
       guard let responseData = responseString.data(using: .utf8),

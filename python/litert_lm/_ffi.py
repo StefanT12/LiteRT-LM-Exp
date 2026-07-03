@@ -53,9 +53,7 @@ class SamplerType(enum.IntEnum):
 
 
 # C-compatible callback type that matches 'LiteRtLmStreamCallback' in engine.h.
-STREAM_CALLBACK_TYPE = ctypes.CFUNCTYPE(
-    None, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool, ctypes.c_char_p
-)
+STREAM_CALLBACK_TYPE = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
 
 
 class LogSeverity(enum.IntEnum):
@@ -533,6 +531,14 @@ def _setup_lib_signatures(lib):
   lib.litert_lm_engine_get_start_token.argtypes = [ctypes.c_void_p]
   lib.litert_lm_engine_get_stop_tokens.restype = ctypes.c_void_p
   lib.litert_lm_engine_get_stop_tokens.argtypes = [ctypes.c_void_p]
+
+  # Stream Chunk
+  lib.litert_lm_stream_chunk_get_text.restype = ctypes.c_char_p
+  lib.litert_lm_stream_chunk_get_text.argtypes = [ctypes.c_void_p]
+  lib.litert_lm_stream_chunk_is_final.restype = ctypes.c_bool
+  lib.litert_lm_stream_chunk_is_final.argtypes = [ctypes.c_void_p]
+  lib.litert_lm_stream_chunk_get_error.restype = ctypes.c_char_p
+  lib.litert_lm_stream_chunk_get_error.argtypes = [ctypes.c_void_p]
 
 
 def set_min_log_severity(severity: LogSeverity):

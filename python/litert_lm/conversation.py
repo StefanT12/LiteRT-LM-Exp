@@ -202,10 +202,13 @@ class Conversation(interfaces.AbstractConversation):
 
       q = queue.Queue()
 
-      def callback(unused_data, chunk, is_final, error_msg):
+      def callback(unused_data, chunk_ptr):
+        error_msg = self._lib.litert_lm_stream_chunk_get_error(chunk_ptr)
         if error_msg:
           q.put(RuntimeError(error_msg.decode("utf-8")))
         else:
+          chunk = self._lib.litert_lm_stream_chunk_get_text(chunk_ptr)
+          is_final = self._lib.litert_lm_stream_chunk_is_final(chunk_ptr)
           q.put((chunk.decode("utf-8") if chunk else "", is_final))
 
       c_callback = STREAM_CALLBACK_TYPE(callback)

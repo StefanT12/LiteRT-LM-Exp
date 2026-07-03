@@ -1247,16 +1247,17 @@ struct StreamCallbackData {
   absl::Status status;
 };
 
-void StreamCallback(void* callback_data, const char* chunk, bool is_final,
-                    const char* error_msg) {
+void StreamCallback(void* callback_data, const LiteRtLmStreamChunk* chunk) {
   auto* data = static_cast<StreamCallbackData*>(callback_data);
+  const char* error_msg = litert_lm_stream_chunk_get_error(chunk);
   if (error_msg) {
     data->status = absl::InternalError(error_msg);
   }
-  if (chunk) {
-    data->response.append(chunk);
+  const char* text = litert_lm_stream_chunk_get_text(chunk);
+  if (text) {
+    data->response.append(text);
   }
-  if (is_final) {
+  if (litert_lm_stream_chunk_is_final(chunk)) {
     data->done.Notify();
   }
 }

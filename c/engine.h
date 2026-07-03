@@ -786,14 +786,34 @@ LITERT_LM_C_API_EXPORT
 double litert_lm_benchmark_info_get_decode_tokens_per_sec_at(
     const LiteRtLmBenchmarkInfo* benchmark_info, int index);
 
+// Opaque pointer for LiteRT LM Stream Chunk.
+// This object represents a single chunk of data returned during streaming.
+// It is owned by the library and is only valid for the duration of the
+// callback.
+typedef struct LiteRtLmStreamChunk LiteRtLmStreamChunk;
+
+// Gets the text content of the chunk.
+// The returned string is owned by the chunk and is only valid as long as the
+// chunk is valid. Returns NULL if there is no text content in this chunk (e.g.
+// if it is an error or metadata-only chunk).
+LITERT_LM_C_API_EXPORT
+const char* litert_lm_stream_chunk_get_text(const LiteRtLmStreamChunk* chunk);
+
+// Returns true if this is the final chunk of the stream.
+LITERT_LM_C_API_EXPORT
+bool litert_lm_stream_chunk_is_final(const LiteRtLmStreamChunk* chunk);
+
+// Gets the error message associated with this chunk, if any.
+// Returns NULL if there is no error.
+LITERT_LM_C_API_EXPORT
+const char* litert_lm_stream_chunk_get_error(const LiteRtLmStreamChunk* chunk);
+
 // Callback for streaming responses.
 // `callback_data` is a pointer to user-defined data passed to the stream
-// function. `chunk` is the piece of text from the stream. It's only valid for
-// the duration of the call. `is_final` is true if this is the last chunk in the
-// stream. `error_msg` is a null-terminated string with an error message, or
-// NULL on success.
-typedef void (*LiteRtLmStreamCallback)(void* callback_data, const char* chunk,
-                                       bool is_final, const char* error_msg);
+// function. `chunk` is a pointer to the stream chunk object. It's only valid
+// for the duration of the call.
+typedef void (*LiteRtLmStreamCallback)(void* callback_data,
+                                       const LiteRtLmStreamChunk* chunk);
 
 // Starts the decoding process for the model to predict the response based
 // on the input prompt/query added after using litert_lm_session_run_prefill.
