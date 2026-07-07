@@ -309,7 +309,7 @@ export type SamplerType = typeof SamplerType[keyof typeof SamplerType];
 /**
  * LiteRT-LM SamplerParameters
  */
-declare interface SamplerParameters {
+export declare interface SamplerParameters {
   type(): EmscriptenEnumElement<SamplerType>;
   setType(type: EmscriptenEnumElement<SamplerType>): void;
   k(): number;
@@ -386,6 +386,7 @@ export declare interface Session extends Deletable {
   runPrefill(inputs: string[]): Promise<void>;
   runDecode(): Promise<Responses>;
   cancelProcess(): void;
+  clone(): Session;
 }
 
 /**
@@ -456,6 +457,7 @@ export declare interface Conversation extends Deletable {
   getTokenCount(): number;
   getBenchmarkInfo(): BenchmarkInfo;
   cancelProcess(): void;
+  clone(): Conversation;
 }
 
 /** Benchmark metadata for tracking decoding efficiency. */
