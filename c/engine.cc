@@ -366,7 +366,7 @@ struct LiteRtLmTokenUnions {
 
 extern "C" {
 
-void litert_lm_set_min_log_level(int level) {
+void litert_lm_set_min_log_level(LiteRtLmLogSeverity level) {
   litert::lm::SetMinLogSeverity(static_cast<litert::lm::LogSeverity>(level));
 }
 
@@ -806,10 +806,11 @@ int litert_lm_engine_settings_set_supported_audio_lora_ranks(
 }
 
 void litert_lm_engine_settings_set_activation_data_type(
-    LiteRtLmEngineSettings* settings, int activation_data_type_int) {
+    LiteRtLmEngineSettings* settings,
+    LiteRtLmActivationDataType activation_data_type) {
   if (settings && settings->settings) {
     settings->settings->GetMutableMainExecutorSettings().SetActivationDataType(
-        static_cast<litert::lm::ActivationDataType>(activation_data_type_int));
+        static_cast<litert::lm::ActivationDataType>(activation_data_type));
   }
 }
 

@@ -299,11 +299,20 @@ LITERT_LM_C_API_EXPORT
 void litert_lm_conversation_optional_args_set_max_output_tokens(
     LiteRtLmConversationOptionalArgs* optional_args, int max_output_tokens);
 
+// Represents the log severity / level.
+typedef enum {
+  kLiteRtLmLogSeverityVerbose = 0,
+  kLiteRtLmLogSeverityDebug = 1,
+  kLiteRtLmLogSeverityInfo = 2,
+  kLiteRtLmLogSeverityWarning = 3,
+  kLiteRtLmLogSeverityError = 4,
+  kLiteRtLmLogSeverityFatal = 5,
+  kLiteRtLmLogSeveritySilent = 1000,
+} LiteRtLmLogSeverity;
+
 // Sets the minimum log level for the LiteRT LM library.
-// Log levels are: 0=VERBOSE, 1=DEBUG, 2=INFO, 3=WARNING, 4=ERROR, 5=FATAL,
-// 1000=SILENT.
 LITERT_LM_C_API_EXPORT
-void litert_lm_set_min_log_level(int level);
+void litert_lm_set_min_log_level(LiteRtLmLogSeverity level);
 
 // Represents the type of input data.
 typedef enum {
@@ -428,15 +437,22 @@ LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_litert_dispatch_lib_dir(
     LiteRtLmEngineSettings* settings, const char* lib_dir);
 
+// Represents the activation data type.
+typedef enum {
+  kLiteRtLmActivationDataTypeFloat32 = 0,
+  kLiteRtLmActivationDataTypeFloat16 = 1,
+  kLiteRtLmActivationDataTypeInt16 = 2,
+  kLiteRtLmActivationDataTypeInt8 = 3,
+} LiteRtLmActivationDataType;
+
 // Sets the activation data type.
 //
 // @param settings The engine settings.
-// @param activation_data_type_int The activation data type. See
-// `ActivationDataType` in executor_settings_base.h for the possible values
-// (e.g., 0 for F32, 1 for F16, 2 for I16, 3 for I8).
+// @param activation_data_type The activation data type.
 LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_activation_data_type(
-    LiteRtLmEngineSettings* settings, int activation_data_type_int);
+    LiteRtLmEngineSettings* settings,
+    LiteRtLmActivationDataType activation_data_type);
 
 // Sets the prefill chunk size for the engine. Only applicable for CPU backend
 // with dynamic models.
