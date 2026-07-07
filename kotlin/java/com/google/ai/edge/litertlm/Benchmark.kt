@@ -90,6 +90,7 @@ fun benchmark(
         ExperimentalFlags.overwritePromptTemplate,
         null, // loraPath
         null, // audioLoraPath
+        false, // prefillPrefaceOnInit
       )
 
     Conversation(conversationHandle).use { conversation ->

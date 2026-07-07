@@ -205,6 +205,7 @@ internal object LiteRtLmJni {
    * @param enableConversationConstrainedDecoding Whether to enable conversation constrained
    *   decoding.
    * @param filterChannelContentFromKvCache Whether to filter channel content from the KV cache.
+   * @param prefillPrefaceOnInit Whether to prefill the preface when initializing the conversation.
    * @return A pointer to the native conversation instance.
    */
   external fun nativeCreateConversation(
@@ -219,6 +220,7 @@ internal object LiteRtLmJni {
     overwritePromptTemplate: String?,
     loraPath: String?,
     audioLoraPath: String?,
+    prefillPrefaceOnInit: Boolean,
   ): Long
 
   /**

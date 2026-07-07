@@ -158,6 +158,7 @@ class Engine(val engineConfig: EngineConfig) : AutoCloseable {
           ExperimentalFlags.overwritePromptTemplate,
           conversationConfig.loraConfig?.loraPath,
           conversationConfig.loraConfig?.audioLoraPath,
+          conversationConfig.prefillPrefaceOnInit,
         ),
         toolManager,
         conversationConfig.automaticToolCalling,

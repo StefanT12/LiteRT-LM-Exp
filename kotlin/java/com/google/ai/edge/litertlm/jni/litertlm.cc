@@ -898,7 +898,7 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateConversation)(
     jboolean enable_constrained_decoding,
     jboolean filter_channel_content_from_kv_cache,
     jstring overwrite_prompt_template, jstring lora_path_str,
-    jstring audio_lora_path_str) {
+    jstring audio_lora_path_str, jboolean prefill_preface_on_init) {
   Engine* engine = reinterpret_cast<Engine*>(engine_pointer);
 
   // Create a native SessionConfig
@@ -980,7 +980,8 @@ LITERTLM_JNIEXPORT jlong JNICALL JNI_METHOD(nativeCreateConversation)(
           .SetPreface(json_preface)
           .SetEnableConstrainedDecoding(enable_constrained_decoding)
           .SetFilterChannelContentFromKvCache(
-              filter_channel_content_from_kv_cache);
+              filter_channel_content_from_kv_cache)
+          .SetPrefillPrefaceOnInit(prefill_preface_on_init);
 
   // Set the channels, if provided.
   // If channels is nullptr, the Conversation will use the channels defined in
