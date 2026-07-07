@@ -19,8 +19,7 @@
 # [Google-internal load of `objc_library`]
 load(
     "@litert//litert/build_common:litert_build_defs.bzl",
-    "export_lrt_runtime_only_linkopt",
-    "export_lrt_runtime_only_script",
+    "copy_file",
 )
 
 LITERT_MIN_IOS_VERSION = "15.0"
@@ -38,27 +37,19 @@ licenses(["notice"])
 
 config_setting(
     name = "disable_huggingface_tokenizer",
-    define_values = {
-        "DISABLE_HUGGINGFACE_TOKENIZER": "1",
-    },
+    define_values = {"DISABLE_HUGGINGFACE_TOKENIZER": "1"},
     visibility = ["//visibility:public"],
 )
 
 config_setting(
     name = "android_webgpu",
-    constraint_values = [
-        "@platforms//os:android",
-    ],
-    values = {
-        "copt": "-DLITERT_USE_WEBGPU_ACCELERATOR",
-    },
+    constraint_values = ["@platforms//os:android"],
+    values = {"copt": "-DLITERT_USE_WEBGPU_ACCELERATOR"},
 )
 
 config_setting(
     name = "disable_sentencepiece_tokenizer",
-    define_values = {
-        "DISABLE_SENTENCEPIECE_TOKENIZER": "1",
-    },
+    define_values = {"DISABLE_SENTENCEPIECE_TOKENIZER": "1"},
     visibility = ["//visibility:public"],
 )
 
@@ -370,9 +361,7 @@ cc_library(
 cc_library(
     name = "model_resources_task",
     srcs = ["model_resources_task.cc"],
-    hdrs = [
-        "model_resources_task.h",
-    ],
+    hdrs = ["model_resources_task.h"],
     deps = [
         ":model_resources",
         "@com_google_absl//absl/container:flat_hash_map",
