@@ -163,8 +163,10 @@ litert::lm::OptionalArgs CreateOptionalArgs(
     const litert::lm::Conversation* conversation, const char* extra_context,
     std::optional<int> visual_token_budget,
     std::optional<int> max_output_tokens,
-    std::optional<litert::lm::ThinkingConfig> thinking_config) {
+    std::optional<litert::lm::ThinkingConfig> thinking_config,
+    bool has_pending_message = false) {
   litert::lm::OptionalArgs litert_lm_optional_args;
+  litert_lm_optional_args.has_pending_message = has_pending_message;
   if (extra_context) {
     auto extra_context_json =
         nlohmann::ordered_json::parse(extra_context, nullptr, false);
@@ -353,6 +355,7 @@ struct LiteRtLmConversationOptionalArgs {
   std::optional<int> visual_token_budget;
   std::optional<int> max_output_tokens;
   std::optional<litert::lm::ThinkingConfig> thinking_config;
+  bool has_pending_message = false;
 };
 struct LiteRtLmDetokenizeResult {
   std::string text;
@@ -648,6 +651,13 @@ void litert_lm_conversation_optional_args_set_thinking_config(
     } else {
       args->thinking_config = std::nullopt;
     }
+  }
+}
+
+void litert_lm_conversation_optional_args_set_has_pending_message(
+    LiteRtLmConversationOptionalArgs* args, bool has_pending_message) {
+  if (args) {
+    args->has_pending_message = has_pending_message;
   }
 }
 
@@ -1405,7 +1415,8 @@ LiteRtLmJsonResponse* litert_lm_conversation_send_message(
       conversation->conversation.get(), extra_context,
       optional_args ? optional_args->visual_token_budget : std::nullopt,
       optional_args ? optional_args->max_output_tokens : std::nullopt,
-      optional_args ? optional_args->thinking_config : std::nullopt);
+      optional_args ? optional_args->thinking_config : std::nullopt,
+      optional_args ? optional_args->has_pending_message : false);
 
   auto response = conversation->conversation->SendMessage(
       json_message, std::move(litert_lm_optional_args));
@@ -1450,7 +1461,8 @@ int litert_lm_conversation_send_message_stream(
       conversation->conversation.get(), extra_context,
       optional_args ? optional_args->visual_token_budget : std::nullopt,
       optional_args ? optional_args->max_output_tokens : std::nullopt,
-      optional_args ? optional_args->thinking_config : std::nullopt);
+      optional_args ? optional_args->thinking_config : std::nullopt,
+      optional_args ? optional_args->has_pending_message : false);
 
   absl::Status status = conversation->conversation->SendMessageAsync(
       json_message, CreateConversationCallback(callback, callback_data),
