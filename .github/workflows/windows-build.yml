@@ -1,0 +1,98 @@
+name: Windows Build (Bazel)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build LiteRT-LM for Windows
+    runs-on: windows-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        build-type: [cpu]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+      
+      - name: Set up Git LFS
+        run: |
+          git lfs install
+          git lfs pull
+      
+      - name: Install Visual Studio 2022 Build Tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          vsversion: "2022"
+      
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Install Bazelisk
+        run: |
+          choco install -y bazel
+        shell: pwsh
+      
+      - name: Verify Bazelisk Installation
+        run: |
+          bazel --version
+        shell: pwsh
+      
+      - name: Configure long paths on Windows
+        run: |
+          New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+        shell: pwsh
+      
+      - name: Enable symlinks for Windows
+        run: |
+          git config --global core.symlinks true
+      
+      - name: Build LiteRT-LM for Windows (CPU)
+        run: |
+          bazel build //runtime/engine:litert_lm_main --config=windows -v
+        shell: pwsh
+        timeout-minutes: 120
+      
+      - name: Verify build artifacts
+        run: |
+          if (Test-Path "bazel-bin/runtime/engine/litert_lm_main.exe") {
+            Write-Host "Build successful! Binary created."
+            Get-Item bazel-bin/runtime/engine/litert_lm_main.exe
+          } else {
+            Write-Host "Build failed! Binary not found."
+            exit 1
+          }
+        shell: pwsh
+      
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: litert-lm-windows-${{ matrix.build-type }}
+          path: bazel-bin/runtime/engine/litert_lm_main.exe
+          retention-days: 30
+      
+      - name: Print build summary
+        if: always()
+        run: |
+          Write-Host "==== Build Summary ===="
+          Write-Host "Platform: Windows"
+          Write-Host "Build Type: ${{ matrix.build-type }}"
+          Write-Host "Status: ${{ job.status }}"
+        shell: pwsh
