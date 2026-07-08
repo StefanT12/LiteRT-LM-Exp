@@ -71,7 +71,7 @@ jobs:
       
       - name: Build LiteRT-LM for Windows (CPU)
         run: |
-          bazel build //runtime/engine:litert_lm_main --config=windows -v
+          bazel build //runtime/engine:litert_lm_main --config=windows --verbose_failures
         shell: pwsh
         timeout-minutes: 120
       
