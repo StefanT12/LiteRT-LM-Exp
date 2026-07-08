@@ -28,13 +28,13 @@ jobs:
           git lfs install
           git lfs pull
       
-      - name: Install Visual Studio 2022 Build Tools
-        uses: microsoft/setup-msbuild@v2
-      
       - name: Setup MSVC Dev Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
         with:
           vsversion: "2022"
+      
+      - name: Install Visual Studio 2022 Build Tools
+        uses: microsoft/setup-msbuild@v2
       
       - name: Install Python
         uses: actions/setup-python@v5
