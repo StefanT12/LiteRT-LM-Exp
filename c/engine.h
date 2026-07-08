@@ -126,6 +126,10 @@ LITERT_LM_C_API_EXPORT
 LiteRtLmSamplerParams* litert_lm_sampler_params_create(
     LiteRtLmSamplerType type);
 
+// expose pending messages
+LITERT_LM_EXPORT void litert_lm_conversation_optional_args_set_has_pending_message(
+    LiteRtLmConversationOptionalArgs* optional_args, bool has_pending_message);
+
 // Destroys LiteRT LM Sampler Parameters.
 //
 // @param params The parameters to destroy.
