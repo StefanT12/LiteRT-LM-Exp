@@ -27,6 +27,7 @@ from ._ffi import STREAM_CALLBACK_TYPE
 from ._messages import Contents
 from ._messages import Message
 from ._messages import normalize_message
+from .utils import thinking_config_to_params
 
 
 class Conversation(interfaces.AbstractConversation):
@@ -43,6 +44,7 @@ class Conversation(interfaces.AbstractConversation):
       tool_event_handler=None,
       automatic_tool_calling=True,
       extra_context=None,
+      thinking_config=None,
       sampler_config=None,
       lora_config=None,
       max_output_tokens=None,
@@ -53,6 +55,7 @@ class Conversation(interfaces.AbstractConversation):
         tool_event_handler=tool_event_handler,
         automatic_tool_calling=automatic_tool_calling,
         extra_context=extra_context,
+        thinking_config=thinking_config,
         sampler_config=sampler_config,
         lora_config=lora_config,
         max_output_tokens=max_output_tokens,
@@ -123,16 +126,32 @@ class Conversation(interfaces.AbstractConversation):
     return tool_responses
 
   def _create_optional_args(
-      self, max_output_tokens: int | None
+      self,
+      max_output_tokens: int | None,
+      thinking_config: interfaces.ThinkingConfig | None,
   ) -> ctypes.c_void_p | None:
     """Creates a C pointer for ConversationOptionalArgs if needed."""
-    if max_output_tokens is None:
+    if max_output_tokens is None and thinking_config is None:
       return None
     ptr = self._lib.litert_lm_conversation_optional_args_create()
-    self._lib.litert_lm_conversation_optional_args_set_max_output_tokens(
-        ptr, max_output_tokens
-    )
-    return ptr
+    try:
+      if max_output_tokens is not None:
+        self._lib.litert_lm_conversation_optional_args_set_max_output_tokens(
+            ptr, max_output_tokens
+        )
+      if thinking_config is not None:
+        tc_ptr = thinking_config_to_params(self._lib, thinking_config)
+        try:
+          self._lib.litert_lm_conversation_optional_args_set_thinking_config(
+              ptr, tc_ptr
+          )
+        finally:
+          if tc_ptr:
+            self._lib.litert_lm_thinking_config_delete(tc_ptr)
+      return ptr
+    except Exception:
+      self._lib.litert_lm_conversation_optional_args_delete(ptr)
+      raise
 
   def _delete_optional_args(self, ptr: ctypes.c_void_p | None) -> None:
     """Deletes the ConversationOptionalArgs C pointer."""
@@ -145,6 +164,7 @@ class Conversation(interfaces.AbstractConversation):
       message: str | Contents | Message | collections.abc.Mapping[str, Any],
       *,
       max_output_tokens: int | None = None,
+      thinking_config: interfaces.ThinkingConfig | None = None,
   ) -> collections.abc.Mapping[str, Any]:
     """See base class."""
     if not self._ptr:
@@ -155,7 +175,9 @@ class Conversation(interfaces.AbstractConversation):
       msg_json = json.dumps(current_message)
       ctx_json = json.dumps(getattr(self, "extra_context", {}))
 
-      optional_args_ptr = self._create_optional_args(max_output_tokens)
+      optional_args_ptr = self._create_optional_args(
+          max_output_tokens, thinking_config
+      )
       try:
         resp_ptr = self._lib.litert_lm_conversation_send_message(
             self._ptr,
@@ -190,6 +212,7 @@ class Conversation(interfaces.AbstractConversation):
       message: str | Contents | Message | collections.abc.Mapping[str, Any],
       *,
       max_output_tokens: int | None = None,
+      thinking_config: interfaces.ThinkingConfig | None = None,
   ) -> collections.abc.Iterator[collections.abc.Mapping[str, Any]]:
     """See base class."""
     if not self._ptr:
@@ -214,7 +237,9 @@ class Conversation(interfaces.AbstractConversation):
       c_callback = STREAM_CALLBACK_TYPE(callback)
       self._current_callback = c_callback
 
-      optional_args_ptr = self._create_optional_args(max_output_tokens)
+      optional_args_ptr = self._create_optional_args(
+          max_output_tokens, thinking_config
+      )
       try:
         res = self._lib.litert_lm_conversation_send_message_stream(
             self._ptr,
